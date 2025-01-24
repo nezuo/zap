@@ -9,7 +9,7 @@ struct ClientOutput<'src> {
 	buf: String,
 }
 
-impl<'a> Output for ClientOutput<'a> {
+impl Output for ClientOutput<'_> {
 	fn push(&mut self, s: &str) {
 		self.buf.push_str(s);
 	}
@@ -29,7 +29,7 @@ impl<'a> Output for ClientOutput<'a> {
 	}
 }
 
-impl<'a> ConfigProvider for ClientOutput<'a> {
+impl ConfigProvider for ClientOutput<'_> {
 	fn get_config(&self) -> &Config {
 		self.config
 	}

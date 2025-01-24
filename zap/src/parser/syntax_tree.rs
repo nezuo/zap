@@ -2,6 +2,7 @@ use crate::config::{EvCall, EvSource, EvType, FnCall, NumTy};
 
 use super::reports::Span;
 
+#[allow(dead_code)]
 pub trait Spanned {
 	fn span(&self) -> Span;
 
@@ -26,7 +27,7 @@ pub struct SyntaxConfig<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxConfig<'src> {
+impl Spanned for SyntaxConfig<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -40,7 +41,7 @@ pub struct SyntaxOpt<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxOpt<'src> {
+impl Spanned for SyntaxOpt<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -53,7 +54,7 @@ pub struct SyntaxOptValue<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxOptValue<'src> {
+impl Spanned for SyntaxOptValue<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -83,7 +84,7 @@ pub struct SyntaxFnDecl<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxFnDecl<'src> {
+impl Spanned for SyntaxFnDecl<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -100,7 +101,7 @@ pub struct SyntaxEvDecl<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxEvDecl<'src> {
+impl Spanned for SyntaxEvDecl<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -113,7 +114,7 @@ pub struct SyntaxParameters<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxParameters<'src> {
+impl Spanned for SyntaxParameters<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -127,7 +128,7 @@ pub struct SyntaxTyDecl<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxTyDecl<'src> {
+impl Spanned for SyntaxTyDecl<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -140,13 +141,13 @@ pub struct SyntaxTy<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxTy<'src> {
+impl Spanned for SyntaxTy<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
 }
 
-impl<'src> Spanned for Vec<SyntaxTy<'src>> {
+impl Spanned for Vec<SyntaxTy<'_>> {
 	fn span(&self) -> Span {
 		self.first().unwrap().start..self.last().unwrap().end
 	}
@@ -175,7 +176,7 @@ pub struct SyntaxEnum<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxEnum<'src> {
+impl Spanned for SyntaxEnum<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -205,7 +206,7 @@ pub struct SyntaxRange<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxRange<'src> {
+impl Spanned for SyntaxRange<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -227,7 +228,7 @@ pub struct SyntaxStrLit<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxStrLit<'src> {
+impl Spanned for SyntaxStrLit<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -240,7 +241,7 @@ pub struct SyntaxNumLit<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxNumLit<'src> {
+impl Spanned for SyntaxNumLit<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}
@@ -266,7 +267,7 @@ pub struct SyntaxIdentifier<'src> {
 	pub end: usize,
 }
 
-impl<'src> Spanned for SyntaxIdentifier<'src> {
+impl Spanned for SyntaxIdentifier<'_> {
 	fn span(&self) -> Span {
 		self.start..self.end
 	}

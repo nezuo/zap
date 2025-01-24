@@ -9,7 +9,7 @@ struct ServerOutput<'src> {
 	buf: String,
 }
 
-impl<'a> Output for ServerOutput<'a> {
+impl Output for ServerOutput<'_> {
 	fn push(&mut self, s: &str) {
 		self.buf.push_str(s);
 	}
@@ -29,7 +29,7 @@ impl<'a> Output for ServerOutput<'a> {
 	}
 }
 
-impl<'a> ConfigProvider for ServerOutput<'a> {
+impl ConfigProvider for ServerOutput<'_> {
 	fn get_config(&self) -> &Config {
 		self.config
 	}

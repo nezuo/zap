@@ -14,6 +14,7 @@ pub enum Report<'src> {
 		expected: Vec<String>,
 	},
 
+	#[allow(dead_code)]
 	ParserUnexpectedToken {
 		span: Span,
 		expected: Vec<String>,
@@ -30,6 +31,7 @@ pub enum Report<'src> {
 
 	AnalyzeEmptyEvDecls,
 
+	#[allow(dead_code)]
 	AnalyzeOversizeUnreliable {
 		ev_span: Span,
 		ty_span: Span,
@@ -51,6 +53,7 @@ pub enum Report<'src> {
 		span: Span,
 	},
 
+	#[allow(dead_code)]
 	AnalyzeEnumTagUsed {
 		tag_span: Span,
 		used_span: Span,
@@ -62,6 +65,7 @@ pub enum Report<'src> {
 		expected: &'static str,
 	},
 
+	#[allow(dead_code)]
 	AnalyzeUnknownOptName {
 		span: Span,
 	},
@@ -108,7 +112,7 @@ pub enum Report<'src> {
 	},
 }
 
-impl<'src> Report<'src> {
+impl Report<'_> {
 	pub fn severity(&self) -> Severity {
 		match self {
 			Self::LexerInvalidToken { .. } => Severity::Error,

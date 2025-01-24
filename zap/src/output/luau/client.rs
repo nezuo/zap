@@ -117,7 +117,7 @@ impl<'src> ClientOutput<'src> {
 			self.config.write_checks,
 			&mut self.var_occurrences,
 		);
-		self.push_stmts(&statements);
+		self.push_stmts(statements);
 		self.dedent();
 		self.push_line("end");
 
@@ -125,7 +125,7 @@ impl<'src> ClientOutput<'src> {
 		self.indent();
 		self.push_line("local value;");
 		let statements = &des::gen(&[ty.clone()], &["value".to_string()], false, &mut self.var_occurrences);
-		self.push_stmts(&statements);
+		self.push_stmts(statements);
 		self.push_line("return value");
 		self.dedent();
 		self.push_line("end");
@@ -338,7 +338,7 @@ impl<'src> ClientOutput<'src> {
 				true,
 				&mut self.var_occurrences,
 			);
-			self.push_stmts(&statements);
+			self.push_stmts(statements);
 		}
 
 		self.push_line(&format!("local thread = reliable_event_queue[{client_id}][call_id]"));

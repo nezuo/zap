@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use crate::{
 	config::{Config, EvCall, EvDecl, EvSource, EvType, FnCall, FnDecl, NumTy, Parameter, TyDecl},
@@ -15,7 +15,7 @@ struct ServerOutput<'src> {
 	var_occurrences: HashMap<String, usize>,
 }
 
-impl<'a> Output for ServerOutput<'a> {
+impl Output for ServerOutput<'_> {
 	fn push(&mut self, s: &str) {
 		self.buf.push_str(s);
 	}

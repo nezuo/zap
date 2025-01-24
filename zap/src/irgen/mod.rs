@@ -1,4 +1,4 @@
-#![allow(dead_code)]
+#![allow(clippy::should_implement_trait)]
 use std::collections::HashMap;
 use std::{fmt::Display, vec};
 

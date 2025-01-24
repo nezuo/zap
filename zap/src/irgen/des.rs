@@ -9,7 +9,7 @@ struct Des<'src> {
 	var_occurrences: &'src mut HashMap<String, usize>,
 }
 
-impl<'src> Gen for Des<'src> {
+impl Gen for Des<'_> {
 	fn push_stmt(&mut self, stmt: Stmt) {
 		self.buf.push(stmt);
 	}
@@ -26,11 +26,11 @@ impl<'src> Gen for Des<'src> {
 	}
 
 	fn get_var_occurrences(&mut self) -> &mut HashMap<String, usize> {
-		&mut self.var_occurrences
+		self.var_occurrences
 	}
 }
 
-impl<'src> Des<'src> {
+impl Des<'_> {
 	fn push_struct(&mut self, struct_ty: &Struct, into: Var) {
 		for (name, ty) in struct_ty.fields.iter() {
 			self.push_ty(ty, into.clone().nindex(*name))
