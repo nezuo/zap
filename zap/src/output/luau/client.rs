@@ -115,7 +115,7 @@ impl<'src> ClientOutput<'src> {
 			&[ty.clone()],
 			&["value".to_string()],
 			self.config.write_checks,
-			&mut self.var_occurrences,
+			&mut HashMap::new(),
 		);
 		self.push_stmts(statements);
 		self.dedent();
@@ -124,7 +124,7 @@ impl<'src> ClientOutput<'src> {
 		self.push_line(&format!("function types.read_{name}()"));
 		self.indent();
 		self.push_line("local value;");
-		let statements = &des::gen(&[ty.clone()], &["value".to_string()], false, &mut self.var_occurrences);
+		let statements = &des::gen(&[ty.clone()], &["value".to_string()], false, &mut HashMap::new());
 		self.push_stmts(statements);
 		self.push_line("return value");
 		self.dedent();

@@ -124,7 +124,7 @@ impl<'src> ToolingOutput<'src> {
 			std::iter::once(ty),
 			&get_unnamed_values("value", 1),
 			true,
-			&mut self.var_occurrences,
+			&mut HashMap::new(),
 		);
 		self.push_stmts(statements);
 		self.push_line("return value");
