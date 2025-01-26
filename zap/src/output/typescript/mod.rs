@@ -203,6 +203,7 @@ pub trait Output: ConfigProvider {
 			Ty::Color3 => self.push("Color3"),
 			Ty::Vector2 => self.push("Vector3"),
 			Ty::Vector3 => self.push("Vector3"),
+			Ty::Vector(..) => self.push("vector"),
 			Ty::AlignedCFrame => self.push("CFrame"),
 			Ty::CFrame => self.push("CFrame"),
 		}

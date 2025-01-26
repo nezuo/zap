@@ -315,6 +315,42 @@ impl Ser<'_> {
 				self.push_writef32(from.clone().nindex("Y").into());
 				self.push_writef32(from.clone().nindex("Z").into());
 			}
+			Ty::Vector(x_ty, y_ty, z_ty) => {
+				match **x_ty {
+					Ty::Num(numty, range) => {
+						if self.checks {
+							self.push_range_check(from_expr.clone(), range);
+						}
+
+						self.push_writenumty(from.clone().nindex("x").into(), numty)
+					}
+					_ => unreachable!(),
+				};
+
+				match **y_ty {
+					Ty::Num(numty, range) => {
+						if self.checks {
+							self.push_range_check(from_expr.clone(), range);
+						}
+
+						self.push_writenumty(from.clone().nindex("y").into(), numty)
+					}
+					_ => unreachable!(),
+				};
+
+				if let Some(z_ty) = z_ty {
+					match **z_ty {
+						Ty::Num(numty, range) => {
+							if self.checks {
+								self.push_range_check(from_expr.clone(), range);
+							}
+
+							self.push_writenumty(from.clone().nindex("z").into(), numty)
+						}
+						_ => unreachable!(),
+					};
+				}
+			}
 
 			Ty::AlignedCFrame => {
 				let (axis_alignment_name, axis_alignment_expr) = self.add_occurrence("axis_alignment");

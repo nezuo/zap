@@ -173,6 +173,7 @@ pub enum Ty<'src> {
 	Num(NumTy, Range),
 	Str(Range),
 	Buf(Range),
+	Vector(Box<Ty<'src>>, Box<Ty<'src>>, Option<Box<Ty<'src>>>),
 	Arr(Box<Ty<'src>>, Range),
 	Map(Box<Ty<'src>>, Box<Ty<'src>>),
 	Set(Box<Ty<'src>>),
@@ -283,6 +284,27 @@ impl<'src> Ty<'src> {
 			Self::Color3 => (12, Some(12)),
 			Self::Vector2 => (8, Some(8)),
 			Self::Vector3 => (12, Some(12)),
+			Self::Vector(x_ty, y_ty, z_ty) => {
+				let x_size = match **x_ty {
+					Ty::Num(numty, _) => numty.size(),
+					_ => 0,
+				};
+				let y_size = match **y_ty {
+					Ty::Num(numty, _) => numty.size(),
+					_ => 0,
+				};
+				let z_size = if let Some(z_ty) = z_ty {
+					match **z_ty {
+						Ty::Num(numty, _) => numty.size(),
+						_ => 0,
+					}
+				} else {
+					0
+				};
+
+				let total = x_size + y_size + z_size;
+				(total, Some(total))
+			}
 			Self::AlignedCFrame => (13, Some(13)),
 			Self::CFrame => (24, Some(24)),
 			Self::Unknown => (0, None),

@@ -350,6 +350,44 @@ impl Des<'_> {
 				),
 			),
 			Ty::Vector3 => self.push_assign(into, self.readvector3()),
+			Ty::Vector(x_ty, y_ty, z_ty) => {
+				let x_numty = match **x_ty {
+					Ty::Num(numty, range) => {
+						if self.checks {
+							self.push_range_check(into_expr.clone(), range);
+						}
+
+						numty
+					}
+					_ => unreachable!(),
+				};
+				let y_numty = match **y_ty {
+					Ty::Num(numty, range) => {
+						if self.checks {
+							self.push_range_check(into_expr.clone(), range);
+						}
+
+						numty
+					}
+					_ => unreachable!(),
+				};
+				let z_numty = if let Some(z_ty) = z_ty {
+					match **z_ty {
+						Ty::Num(numty, range) => {
+							if self.checks {
+								self.push_range_check(into_expr.clone(), range);
+							}
+
+							Some(numty)
+						}
+						_ => unreachable!(),
+					}
+				} else {
+					None
+				};
+
+				self.push_assign(into, self.readvector(x_numty, y_numty, z_numty));
+			}
 
 			Ty::AlignedCFrame => {
 				let (axis_alignment_name, axis_alignment_expr) = self.add_occurrence("axis_alignment");

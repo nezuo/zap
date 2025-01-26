@@ -158,6 +158,7 @@ pub enum SyntaxTyKind<'src> {
 	Num(NumTy, Option<SyntaxRange<'src>>),
 	Str(Option<SyntaxRange<'src>>),
 	Buf(Option<SyntaxRange<'src>>),
+	Vector(Box<SyntaxTy<'src>>, Box<SyntaxTy<'src>>, Option<Box<SyntaxTy<'src>>>),
 	Arr(Box<SyntaxTy<'src>>, Option<SyntaxRange<'src>>),
 	Map(Box<SyntaxTy<'src>>, Box<SyntaxTy<'src>>),
 	Set(Box<SyntaxTy<'src>>),

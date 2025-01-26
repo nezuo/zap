@@ -497,6 +497,44 @@ impl<'src> Converter<'src> {
 					.unwrap_or_default(),
 			),
 
+			SyntaxTyKind::Vector(x_ty, y_ty, z_ty) => {
+				match self.ty(x_ty) {
+					Ty::Num(_, _) => (),
+					_ => self.report(Report::AnalyzeInvalidVectorType {
+						span: Span {
+							start: x_ty.start,
+							end: x_ty.end,
+						},
+					}),
+				};
+				match self.ty(y_ty) {
+					Ty::Num(_, _) => (),
+					_ => self.report(Report::AnalyzeInvalidVectorType {
+						span: Span {
+							start: y_ty.start,
+							end: y_ty.end,
+						},
+					}),
+				};
+				if let Some(z_ty) = z_ty {
+					match self.ty(z_ty) {
+						Ty::Num(_, _) => (),
+						_ => self.report(Report::AnalyzeInvalidVectorType {
+							span: Span {
+								start: z_ty.start,
+								end: z_ty.end,
+							},
+						}),
+					};
+				}
+
+				Ty::Vector(
+					Box::new(self.ty(x_ty)),
+					Box::new(self.ty(y_ty)),
+					z_ty.as_ref().map(|z_ty| Box::new(self.ty(z_ty))),
+				)
+			}
+
 			SyntaxTyKind::Arr(ty, len) => Ty::Arr(
 				Box::new(self.ty(ty)),
 				len.map(|len| self.checked_range_within(&len, 0.0, u16::MAX as f64))
@@ -646,7 +684,7 @@ impl<'src> Converter<'src> {
 				match ref_name {
 					ref_name if ref_name == name => Some(*ref_ty),
 
-					"boolean" | "Color3" | "Vector3" | "AlignedCFrame" | "CFrame" | "unknown" => None,
+					"boolean" | "Color3" | "Vector3" | "vector" | "AlignedCFrame" | "CFrame" | "unknown" => None,
 
 					_ => {
 						if searched.contains(ref_name) {

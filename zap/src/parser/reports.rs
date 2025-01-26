@@ -49,6 +49,10 @@ pub enum Report<'src> {
 		span: Span,
 	},
 
+	AnalyzeInvalidVectorType {
+		span: Span,
+	},
+
 	AnalyzeEmptyEnum {
 		span: Span,
 	},
@@ -126,6 +130,7 @@ impl Report<'_> {
 			Self::AnalyzeOversizeUnreliable { .. } => Severity::Error,
 			Self::AnalyzePotentiallyOversizeUnreliable { .. } => Severity::Warning,
 			Self::AnalyzeInvalidRange { .. } => Severity::Error,
+			Self::AnalyzeInvalidVectorType { .. } => Severity::Error,
 			Self::AnalyzeEmptyEnum { .. } => Severity::Error,
 			Self::AnalyzeEnumTagUsed { .. } => Severity::Error,
 			Self::AnalyzeInvalidOptValue { .. } => Severity::Error,
@@ -157,6 +162,7 @@ impl Report<'_> {
 			Self::AnalyzeOversizeUnreliable { .. } => "oversize unreliable".to_string(),
 			Self::AnalyzePotentiallyOversizeUnreliable { .. } => "potentially oversize unreliable".to_string(),
 			Self::AnalyzeInvalidRange { .. } => "invalid range".to_string(),
+			Self::AnalyzeInvalidVectorType { .. } => "invalid vector type".to_string(),
 			Self::AnalyzeEmptyEnum { .. } => "empty enum".to_string(),
 			Self::AnalyzeEnumTagUsed { .. } => "enum tag used in variant".to_string(),
 			Self::AnalyzeInvalidOptValue { expected, .. } => format!("invalid opt value, expected {}", expected),
@@ -197,6 +203,7 @@ impl Report<'_> {
 			Self::AnalyzeDuplicateDecl { .. } => "3014",
 			Self::AnalyzeDuplicateParameter { .. } => "3015",
 			Self::AnalyzeNamedReturn { .. } => "3016",
+			Self::AnalyzeInvalidVectorType { .. } => "3017",
 		}
 	}
 
@@ -238,6 +245,10 @@ impl Report<'_> {
 
 			Self::AnalyzeInvalidRange { span } => {
 				vec![Label::primary((), span.clone()).with_message("invalid range")]
+			}
+
+			Self::AnalyzeInvalidVectorType { span } => {
+				vec![Label::primary((), span.clone()).with_message("invalid vector component type")]
 			}
 
 			Self::AnalyzeEmptyEnum { span } => {
@@ -336,6 +347,9 @@ impl Report<'_> {
 				"ranges must be in the form `min..max`".to_string(),
 				"ranges can be invalid if `min` is greater than `max`".to_string(),
 			]),
+			Self::AnalyzeInvalidVectorType { .. } => {
+				Some(vec!["only numeric types are valid vector components".to_string()])
+			}
 			Self::AnalyzeEmptyEnum { .. } => Some(vec![
 				"enums cannot be empty".to_string(),
 				"if you're looking to create an empty type, use a struct with no fields".to_string(),

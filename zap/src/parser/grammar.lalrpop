@@ -103,6 +103,13 @@ TyKind: SyntaxTyKind<'input> = {
 
     "string" <r:("(" <IntRange> ")")?> => SyntaxTyKind::Str(r),
     "buffer" <r:("(" <IntRange> ")")?> => SyntaxTyKind::Buf(r),
+    "vector" => SyntaxTyKind::Vector(
+        Box::new(SyntaxTy { start: 0, end: 0, kind: SyntaxTyKind::Num(NumTy::F32, None)}),
+        Box::new(SyntaxTy { start: 0, end: 0, kind: SyntaxTyKind::Num(NumTy::F32, None)}),
+        Some(Box::new(SyntaxTy { start: 0, end: 0, kind: SyntaxTyKind::Num(NumTy::F32, None)}))
+    ),
+    "vector" "(" <x_ty:Ty> "," <y_ty:Ty> ")" => SyntaxTyKind::Vector(Box::new(x_ty), Box::new(y_ty), None),
+    "vector" "(" <x_ty:Ty> "," <y_ty:Ty> "," <z_ty:Ty> ")" => SyntaxTyKind::Vector(Box::new(x_ty), Box::new(y_ty), Some(Box::new(z_ty))),
 
     <ty:Ty> "[" <r:IntRange?> "]" => SyntaxTyKind::Arr(Box::new(ty), r),
     "map" "{" "[" <k:Ty> "]" ":" <v:Ty> "}" => SyntaxTyKind::Map(Box::new(k), Box::new(v)),

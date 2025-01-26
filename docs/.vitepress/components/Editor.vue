@@ -137,6 +137,7 @@ const beforeMount = (monaco: Monaco) => {
 		"Instance",
 		"Color3",
 		"Vector3",
+		"vector",
 		"AlignedCFrame",
 		"CFrame",
 	] as const;
