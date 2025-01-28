@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::config::{
-	Casing, Config, Enum, EvDecl, EvSource, EvType, FnDecl, Parameter, Range, Struct, Ty, TyDecl, YieldType,
+	Casing, Config, Enum, EvDecl, EvSource, EvType, FnDecl, NumTy, Parameter, Range, Struct, Ty, TyDecl, YieldType,
 };
 
 use super::{
@@ -499,8 +499,17 @@ impl<'src> Converter<'src> {
 
 			SyntaxTyKind::Vector(x_ty, y_ty, z_ty) => {
 				match self.ty(x_ty) {
-					Ty::Num(_, _) => (),
-					_ => self.report(Report::AnalyzeInvalidVectorType {
+					Ty::Num(numty, _) => {
+						if let NumTy::F64 = numty {
+							self.report(Report::AnalyzeOversizeVectorComponent {
+								span: Span {
+									start: x_ty.start,
+									end: x_ty.end,
+								},
+							});
+						}
+					}
+					_ => self.report(Report::AnalyzeOversizeVectorComponent {
 						span: Span {
 							start: x_ty.start,
 							end: x_ty.end,
@@ -508,7 +517,16 @@ impl<'src> Converter<'src> {
 					}),
 				};
 				match self.ty(y_ty) {
-					Ty::Num(_, _) => (),
+					Ty::Num(numty, _) => {
+						if let NumTy::F64 = numty {
+							self.report(Report::AnalyzeOversizeVectorComponent {
+								span: Span {
+									start: y_ty.start,
+									end: y_ty.end,
+								},
+							})
+						}
+					}
 					_ => self.report(Report::AnalyzeInvalidVectorType {
 						span: Span {
 							start: y_ty.start,
@@ -518,7 +536,16 @@ impl<'src> Converter<'src> {
 				};
 				if let Some(z_ty) = z_ty {
 					match self.ty(z_ty) {
-						Ty::Num(_, _) => (),
+						Ty::Num(numty, _) => {
+							if let NumTy::F64 = numty {
+								self.report(Report::AnalyzeOversizeVectorComponent {
+									span: Span {
+										start: z_ty.start,
+										end: z_ty.end,
+									},
+								})
+							}
+						}
 						_ => self.report(Report::AnalyzeInvalidVectorType {
 							span: Span {
 								start: z_ty.start,

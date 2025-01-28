@@ -53,6 +53,10 @@ pub enum Report<'src> {
 		span: Span,
 	},
 
+	AnalyzeOversizeVectorComponent {
+		span: Span,
+	},
+
 	AnalyzeEmptyEnum {
 		span: Span,
 	},
@@ -131,6 +135,7 @@ impl Report<'_> {
 			Self::AnalyzePotentiallyOversizeUnreliable { .. } => Severity::Warning,
 			Self::AnalyzeInvalidRange { .. } => Severity::Error,
 			Self::AnalyzeInvalidVectorType { .. } => Severity::Error,
+			Self::AnalyzeOversizeVectorComponent { .. } => Severity::Error,
 			Self::AnalyzeEmptyEnum { .. } => Severity::Error,
 			Self::AnalyzeEnumTagUsed { .. } => Severity::Error,
 			Self::AnalyzeInvalidOptValue { .. } => Severity::Error,
@@ -163,6 +168,7 @@ impl Report<'_> {
 			Self::AnalyzePotentiallyOversizeUnreliable { .. } => "potentially oversize unreliable".to_string(),
 			Self::AnalyzeInvalidRange { .. } => "invalid range".to_string(),
 			Self::AnalyzeInvalidVectorType { .. } => "invalid vector type".to_string(),
+			Self::AnalyzeOversizeVectorComponent { .. } => "vectors cannot represent f64s".to_string(),
 			Self::AnalyzeEmptyEnum { .. } => "empty enum".to_string(),
 			Self::AnalyzeEnumTagUsed { .. } => "enum tag used in variant".to_string(),
 			Self::AnalyzeInvalidOptValue { expected, .. } => format!("invalid opt value, expected {}", expected),
@@ -204,6 +210,7 @@ impl Report<'_> {
 			Self::AnalyzeDuplicateParameter { .. } => "3015",
 			Self::AnalyzeNamedReturn { .. } => "3016",
 			Self::AnalyzeInvalidVectorType { .. } => "3017",
+			Self::AnalyzeOversizeVectorComponent { .. } => "3018",
 		}
 	}
 
@@ -249,6 +256,10 @@ impl Report<'_> {
 
 			Self::AnalyzeInvalidVectorType { span } => {
 				vec![Label::primary((), span.clone()).with_message("invalid vector component type")]
+			}
+
+			Self::AnalyzeOversizeVectorComponent { span } => {
+				vec![Label::primary((), span.clone()).with_message("oversized vector component type")]
 			}
 
 			Self::AnalyzeEmptyEnum { span } => {
@@ -349,6 +360,9 @@ impl Report<'_> {
 			]),
 			Self::AnalyzeInvalidVectorType { .. } => {
 				Some(vec!["only numeric types are valid vector components".to_string()])
+			}
+			Self::AnalyzeOversizeVectorComponent { .. } => {
+				Some(vec!["f64 is not a valid vector component".to_string()])
 			}
 			Self::AnalyzeEmptyEnum { .. } => Some(vec![
 				"enums cannot be empty".to_string(),
