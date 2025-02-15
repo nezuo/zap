@@ -5,6 +5,8 @@ opt client_output = "path/to/client/output.lua"`
 const outputExample = `opt server_output = "./network/client.luau"
 opt client_output = "src/client/zap.luau"`
 
+const typesOutputExample = `opt types_output = "network/types.luau"`
+
 const asyncLibExample = `opt yield_type = "promise"
 opt async_lib = "require(game:GetService('ReplicatedStorage').Promise)"`
 
@@ -36,6 +38,16 @@ The paths are relative to the configuration file and should point to a lua(u) fi
 ### Example
 
 <CodeBlock :code="outputExample" />
+
+## `types_output` [`0.6.18+`]
+
+Configures where Luau types will be output.
+
+The path is relative to the configuration file and should point to a lua(u) file.
+
+### Example
+
+<CodeBlock :code="typesOutputExample" />
 
 ## `remote_scope`
 
