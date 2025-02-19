@@ -87,7 +87,30 @@ impl<'src> ClientOutput<'src> {
 			self.push_line(&format!("{name} = table.freeze({{", name = fndecl.name));
 			self.indent();
 
-			self.push_line(&format!("{call} = noop"));
+			self.push_indent();
+			self.push(&format!("{call} = "));
+
+			match self.config.yield_type {
+				YieldType::Yield => self.push("noop\n"),
+				YieldType::Future => {
+					self.push("function()\n");
+					self.indent();
+					self.push_line("return Future.new(function()");
+					self.indent();
+					self.push_line(&format!("error(\"{} called when game is not running\")", fndecl.name));
+					self.dedent();
+					self.push_line("end)");
+					self.dedent();
+					self.push_line("end");
+				},
+				YieldType::Promise => {
+					self.push("function()\n");
+					self.indent();
+					self.push_line(&format!("return Promise.reject(\"{} called when game is not running\")", fndecl.name));
+					self.dedent();
+					self.push_line("end");
+				},
+			}
 
 			self.dedent();
 			self.push_line("}),");
