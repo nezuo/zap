@@ -143,9 +143,9 @@ impl<'src> ToolingOutput<'src> {
 	fn push_event_callback(&mut self, ev: &EvDecl) {
 		let values = get_unnamed_values("value", ev.data.len());
 
-		self.push_line(&format!("local {}", values.join(", ")));
-
 		if !ev.data.is_empty() {
+			self.push_line(&format!("local {}", values.join(", ")));
+
 			let statements = &des::gen(
 				ev.data.iter().map(|parameter| &parameter.ty),
 				&values,
@@ -206,9 +206,10 @@ impl<'src> ToolingOutput<'src> {
 
 		if is_server {
 			let values = get_unnamed_values("value", fn_decl.args.len());
-			self.push_line(&format!("local {}", values.join(", ")));
 
 			if !fn_decl.args.is_empty() {
+				self.push_line(&format!("local {}", values.join(", ")));
+
 				let statements = &des::gen(
 					fn_decl.args.iter().map(|parameter| &parameter.ty),
 					&values,
@@ -237,9 +238,10 @@ impl<'src> ToolingOutput<'src> {
 			self.push_line("})");
 		} else {
 			let values = get_unnamed_values("value", fn_decl.rets.as_ref().unwrap_or(&vec![]).len());
-			self.push_line(&format!("local {}", values.join(", ")));
 
 			if let Some(data) = &fn_decl.rets {
+				self.push_line(&format!("local {}", values.join(", ")));
+
 				let statements = &des::gen(
 					data,
 					&get_unnamed_values("value", data.len()),

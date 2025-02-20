@@ -276,3 +276,26 @@ async fn test_tuples() {
 
 	runtime.run("Zap", output).await.unwrap();
 }
+
+#[tokio::test]
+async fn test_no_data() {
+	let (config, reports) = parse(include_str!("../files/no_data.zap"));
+
+	assert!(config.is_some());
+	assert!(reports.is_empty());
+
+	let default_values: HashMap<&str, Vec<&str>> = HashMap::from([
+		("Test1", vec![]),
+		("Test2", vec![]),
+		("Test3__ARGS", vec![]),
+		("Test3__RETS", vec![]),
+		("Test4__ARGS", vec!["47"]),
+		("Test4__RETS", vec![]),
+		("Test5__ARGS", vec![]),
+		("Test5__RETS", vec!["183"]),
+	]);
+	let output = TestOutput::new(&config.unwrap(), default_values).output();
+	let mut runtime = Runtime::new();
+
+	runtime.run("Zap", output).await.unwrap();
+}
