@@ -112,7 +112,7 @@ const beforeMount = (monaco: Monaco) => {
 
 	const Brand = ["Reliable", "Unreliable"] as const;
 
-	const Calls = ["SingleSync", "SingleAsync", "ManySync", "ManyAsync"] as const;
+	const Calls = ["SingleSync", "SingleAsync", "ManySync", "ManyAsync", "Polling"] as const;
 
 	const Options = ["write_checks", "typescript", "typescript_max_tuple_length", "manual_event_loop", "remote_scope", "remote_folder", "server_output", "client_output", "casing", "yield_type", "async_lib", "tooling", "tooling_output", "tooling_show_internal_data", "disable_fire_all"] as const;
 
@@ -168,12 +168,15 @@ const beforeMount = (monaco: Monaco) => {
 
 		server_output: [],
 		client_output: [],
+		types_output: [],
 		tooling_output: [],
 
 		casing: Casing,
 		yield_type: YieldType,
 		async_lib: [],
 		disable_fire_all: Operators,
+
+		call_default: Calls
 	} as const;
 
 	monaco.languages.registerTokensProviderFactory("zapConfig", {
