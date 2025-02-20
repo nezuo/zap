@@ -96,7 +96,7 @@ pub struct SyntaxEvDecl<'src> {
 	pub name: SyntaxIdentifier<'src>,
 	pub from: EvSource,
 	pub evty: EvType,
-	pub call: EvCall,
+	pub call: Option<EvCall>,
 	pub data: Option<SyntaxParameters<'src>>,
 	pub end: usize,
 }

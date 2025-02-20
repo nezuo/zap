@@ -59,6 +59,7 @@ impl<'src> ClientOutput<'src> {
 
 		let fire = self.config.casing.with("Fire", "fire", "fire");
 		let set_callback = self.config.casing.with("SetCallback", "setCallback", "set_callback");
+		let iter = self.config.casing.with("Iter", "iter", "iter");
 		let on = self.config.casing.with("On", "on", "on");
 		let call = self.config.casing.with("Call", "call", "call");
 
@@ -76,6 +77,13 @@ impl<'src> ClientOutput<'src> {
 				match ev.call {
 					EvCall::SingleSync | EvCall::SingleAsync => self.push_line(&format!("{set_callback} = noop")),
 					EvCall::ManySync | EvCall::ManyAsync => self.push_line(&format!("{on} = noop")),
+					EvCall::Polling => {
+						self.push_line(&format!("{iter} = function()"));
+						self.indent();
+						self.push_line("return noop");
+						self.dedent();
+						self.push_line("end");
+					}
 				}
 			}
 
@@ -234,6 +242,92 @@ impl<'src> ClientOutput<'src> {
 		}
 	}
 
+	fn push_polling_event(&mut self, ev: &EvDecl) {
+		let id = ev.id;
+		let arguments = get_unnamed_values("value", ev.data.len());
+		let returns_length = arguments.len().max(1);
+
+		self.push_line(&format!("local queue = polling_queues[{id}]"));
+		self.push_line("-- `arguments` is a circular buffer.");
+		self.push_line("-- `queue.arguments` can be replaced when it needs to grow.");
+		self.push_line(
+			"-- It's indexed like `arguments[((index - 1) % queue_size) + 1] because Luau has 1-based indexing.",
+		);
+		self.push_line("local arguments = queue.arguments");
+		self.push_line("local queue_size = queue.queue_size");
+		self.push_line("local read_cursor = queue.read_cursor");
+		self.push_line("local write_cursor = queue.write_cursor");
+		self.push_line(&format!(
+			"local unwrapped_write_end_cursor = write_cursor + {returns_length}"
+		));
+		self.push_line("local write_end_cursor = ((unwrapped_write_end_cursor - 1) % queue_size) + 1");
+
+		self.push_line("if (write_cursor < read_cursor and write_end_cursor >= read_cursor) or (unwrapped_write_end_cursor > queue_size and write_end_cursor >= read_cursor) then");
+		self.indent();
+		self.push_line("local new_queue_size = queue_size * 2");
+		self.push_line("local new_arguments = table.create(new_queue_size)");
+		self.push_line("local new_write_cursor");
+
+		self.push_line("if write_cursor >= read_cursor then");
+		self.indent();
+		self.push_line("table.move(arguments, read_cursor, write_cursor, 1, new_arguments)");
+		self.push_line("new_write_cursor = write_cursor - read_cursor + 1");
+		self.dedent();
+		self.push_line("else");
+		self.indent();
+		self.push_line("table.move(arguments, read_cursor, queue_size, 1, new_arguments)");
+		self.push_line("table.move(arguments, 1, write_cursor, (queue_size - read_cursor) + 1, new_arguments)");
+		self.push_line("new_write_cursor = write_cursor + (queue_size - read_cursor) + 1");
+		self.dedent();
+		self.push_line("end");
+
+		self.push_line("queue.arguments = new_arguments");
+		self.push_line("queue.queue_size = new_queue_size");
+		self.push_line("queue.read_cursor = 1");
+		self.push_line("queue.write_cursor = new_write_cursor");
+		for (index, argument) in arguments.iter().enumerate() {
+			if index > 0 {
+				self.push_line(&format!(
+					"new_arguments[((new_write_cursor + {} - 1) % new_queue_size) + 1] = {argument}",
+					index
+				));
+			} else {
+				self.push_line(&format!("new_arguments[new_write_cursor] = {argument}"));
+			}
+		}
+		if returns_length == 1 {
+			self.push_line("queue.write_cursor = (write_cursor % new_queue_size) + 1");
+		} else {
+			self.push_line(&format!(
+				"queue.write_cursor = ((write_cursor + {}) % new_queue_size) + 1",
+				returns_length - 1
+			));
+		}
+		self.dedent();
+		self.push_line("else");
+		self.indent();
+		for (index, argument) in arguments.iter().enumerate() {
+			if index > 0 {
+				self.push_line(&format!(
+					"arguments[((write_cursor + {} - 1) % queue_size) + 1] = {argument}",
+					index
+				));
+			} else {
+				self.push_line(&format!("arguments[write_cursor] = {argument}"));
+			}
+		}
+		if returns_length == 1 {
+			self.push_line("queue.write_cursor = (write_cursor % queue_size) + 1");
+		} else {
+			self.push_line(&format!(
+				"queue.write_cursor = ((write_cursor + {}) % queue_size) + 1",
+				returns_length - 1
+			));
+		}
+		self.dedent();
+		self.push_line("end");
+	}
+
 	fn push_reliable_callback(&mut self, first: bool, ev: &EvDecl) {
 		let id = ev.id;
 
@@ -267,10 +361,10 @@ impl<'src> ClientOutput<'src> {
 			self.push_stmts(statements);
 		}
 
-		if ev.call == EvCall::SingleSync || ev.call == EvCall::SingleAsync {
-			self.push_line(&format!("if reliable_events[{id}] then"));
-		} else {
-			self.push_line(&format!("if reliable_events[{id}][1] then"));
+		match ev.call {
+			EvCall::SingleSync | EvCall::SingleAsync => self.push_line(&format!("if reliable_events[{id}] then")),
+			EvCall::ManySync | EvCall::ManyAsync => self.push_line(&format!("if reliable_events[{id}][1] then")),
+			EvCall::Polling => self.push_polling_event(ev),
 		}
 
 		self.indent();
@@ -285,6 +379,7 @@ impl<'src> ClientOutput<'src> {
 			EvCall::SingleAsync => self.push_line(&format!("task.spawn(reliable_events[{id}], {values})")),
 			EvCall::ManySync => self.push_line(&format!("cb({values})")),
 			EvCall::ManyAsync => self.push_line(&format!("task.spawn(cb, {values})")),
+			EvCall::Polling => (),
 		}
 
 		if ev.call == EvCall::ManySync || ev.call == EvCall::ManyAsync {
@@ -293,41 +388,44 @@ impl<'src> ClientOutput<'src> {
 		}
 
 		self.dedent();
-		self.push_line("else");
-		self.indent();
 
-		if !ev.data.is_empty() {
-			if ev.data.len() > 1 {
-				self.push_line(&format!("table.insert(reliable_event_queue[{id}], {{ {values} }})"));
+		if ev.call != EvCall::Polling {
+			self.push_line("else");
+			self.indent();
+
+			if !ev.data.is_empty() {
+				if ev.data.len() > 1 {
+					self.push_line(&format!("table.insert(reliable_event_queue[{id}], {{ {values} }})"));
+				} else {
+					self.push_line(&format!("table.insert(reliable_event_queue[{id}], value)"));
+				}
+
+				self.push_line(&format!("if #reliable_event_queue[{id}] > 64 then"));
 			} else {
-				self.push_line(&format!("table.insert(reliable_event_queue[{id}], value)"));
+				self.push_line(&format!("reliable_event_queue[{id}] += 1"));
+				self.push_line(&format!("if reliable_event_queue[{id}] > 16 then"));
 			}
 
-			self.push_line(&format!("if #reliable_event_queue[{id}] > 64 then"));
-		} else {
-			self.push_line(&format!("reliable_event_queue[{id}] += 1"));
-			self.push_line(&format!("if reliable_event_queue[{id}] > 16 then"));
+			self.indent();
+			self.push_indent();
+
+			self.push("warn(`[ZAP] {");
+
+			if !ev.data.is_empty() {
+				self.push("#")
+			}
+
+			self.push(&format!(
+				"reliable_event_queue[{id}]}} events in queue for {}. Did you forget to attach a listener?`)\n",
+				ev.name
+			));
+
+			self.dedent();
+			self.push_line("end");
+
+			self.dedent();
+			self.push_line("end");
 		}
-
-		self.indent();
-		self.push_indent();
-
-		self.push("warn(`[ZAP] {");
-
-		if !ev.data.is_empty() {
-			self.push("#")
-		}
-
-		self.push(&format!(
-			"reliable_event_queue[{id}]}} events in queue for {}. Did you forget to attach a listener?`)\n",
-			ev.name
-		));
-
-		self.dedent();
-		self.push_line("end");
-
-		self.dedent();
-		self.push_line("end");
 
 		self.dedent();
 	}
@@ -385,6 +483,22 @@ impl<'src> ClientOutput<'src> {
 		self.push_line(&format!("reliable_event_queue[{client_id}][call_id] = nil"));
 
 		self.dedent();
+	}
+
+	fn push_iter(&mut self, ev: &EvDecl) {
+		let iter = self.config.casing.with("Iter", "iter", "iter");
+		let id = ev.id;
+		self.push_indent();
+		self.push(&format!(
+			"{iter} = polling_queues[{id}].iterator :: () -> (() -> (number"
+		));
+		if !ev.data.is_empty() {
+			for argument in ev.data.iter() {
+				self.push(", ");
+				self.push_ty(&argument.ty);
+			}
+		}
+		self.push(")),\n");
 	}
 
 	fn push_reliable_footer(&mut self) {
@@ -467,6 +581,7 @@ impl<'src> ClientOutput<'src> {
 			EvCall::SingleAsync => self.push_line(&format!("task.spawn(unreliable_events[{id}], {values})")),
 			EvCall::ManySync => self.push_line(&format!("cb({values})")),
 			EvCall::ManyAsync => self.push_line(&format!("task.spawn(cb, {values})")),
+			EvCall::Polling => (),
 		}
 
 		if ev.call == EvCall::ManySync || ev.call == EvCall::ManyAsync {
@@ -843,11 +958,125 @@ impl<'src> ClientOutput<'src> {
 			match ev.call {
 				EvCall::SingleSync | EvCall::SingleAsync => self.push_return_setcallback(ev),
 				EvCall::ManySync | EvCall::ManyAsync => self.push_return_on(ev),
+				EvCall::Polling => self.push_iter(ev),
 			}
 
 			self.dedent();
 			self.push_line("},");
 		}
+	}
+
+	fn push_polling(&mut self) {
+		let filtered_evdecls = self
+			.config
+			.evdecls
+			.iter()
+			.filter(|evdecl| evdecl.from == EvSource::Server && evdecl.call == EvCall::Polling)
+			.collect::<Vec<&EvDecl>>();
+
+		if !filtered_evdecls.is_empty() {
+			self.push("\n");
+		}
+
+		for evdecl in filtered_evdecls {
+			let id = evdecl.id;
+			let mut return_names: Vec<String> = vec![];
+			if evdecl.data.is_empty() {
+				return_names.push(String::from("value"));
+			}
+			for (index, parameter) in evdecl.data.iter().enumerate() {
+				return_names.push(format!(
+					"value_{}{}",
+					index + 1,
+					if let Some(name) = parameter.name {
+						format!("_{}", name)
+					} else {
+						String::from("")
+					}
+				));
+			}
+			let arguments_size = return_names.len().max(1);
+
+			self.push_line(&format!("polling_queues[{id}] = {{"));
+			self.indent();
+
+			self.push_line(&format!(
+				"arguments = table.create({}),",
+				max(arguments_size * super::INITIAL_POLLING_EVENT_CAPACITY, 1)
+			));
+			self.push_line(&format!(
+				"queue_size = {},",
+				max(arguments_size * super::INITIAL_POLLING_EVENT_CAPACITY, 1)
+			));
+			self.push_line("read_cursor = 1,");
+			self.push_line("write_cursor = 1,");
+			self.push_line("iterator = function()");
+			self.indent();
+
+			self.push_line(&format!("local queue = polling_queues[{id}]"));
+			self.push_line("local index = 0");
+			self.push_line("return function()");
+			self.indent();
+
+			self.push_line("index += 1");
+
+			self.push_line("if queue.read_cursor == queue.write_cursor then");
+			self.indent();
+
+			self.push_line("return nil");
+
+			// end `if queue.read_cursor == queue.write_cursor then`
+			self.dedent();
+			self.push_line("end");
+
+			// `queue` fields could be changed if the user yields while polling and more events are written that force the queue to grow.
+			// That's why these are defined inside the generator.
+			self.push_line("local arguments = queue.arguments");
+			self.push_line("local read_cursor = queue.read_cursor");
+			self.push_line("local queue_size = queue.queue_size");
+			self.push_indent();
+			self.push("local ");
+			self.push(&return_names.join(", "));
+			self.push(" = ");
+			for argument_index in 0..return_names.len() {
+				if argument_index > 0 {
+					self.push(", ");
+				}
+				self.push(&format!(
+					"arguments[{}]",
+					if argument_index == 0 {
+						String::from("read_cursor")
+					} else if argument_index == 1 {
+						String::from("(read_cursor % queue_size) + 1")
+					} else {
+						format!("((read_cursor + {}) % queue_size) + 1", argument_index - 1)
+					}
+				));
+			}
+			self.push("\n");
+			if arguments_size == 1 {
+				self.push_line("queue.read_cursor = (queue.read_cursor % queue.queue_size) + 1");
+			} else {
+				self.push_line(&format!(
+					"queue.read_cursor = ((queue.read_cursor + {}) % queue.queue_size) + 1",
+					arguments_size - 1
+				));
+			}
+			self.push_line(&format!("return index, {}", return_names.join(", ")));
+
+			// dedent generator
+			self.dedent();
+			self.push_line("end");
+
+			// dedent iterator
+			self.dedent();
+			self.push_line("end,");
+
+			// dedent queue definition
+			self.dedent();
+			self.push_line("}");
+		}
+		self.push_line("table.freeze(polling_queues)\n");
 	}
 
 	fn push_return_functions(&mut self) {
@@ -1079,6 +1308,8 @@ impl<'src> ClientOutput<'src> {
 		{
 			self.push_unreliable();
 		}
+
+		self.push_polling();
 
 		self.push_return();
 

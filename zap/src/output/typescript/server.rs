@@ -174,24 +174,54 @@ impl<'a> ServerOutput<'a> {
 			self.push_line(&format!("export declare const {name}: {{", name = ev.name));
 			self.indent();
 
-			let set_callback = match ev.call {
-				EvCall::SingleSync | EvCall::SingleAsync => {
-					self.config.casing.with("SetCallback", "setCallback", "set_callback")
+			if ev.call == EvCall::Polling {
+				let index = self.config.casing.with("Index", "index", "index");
+				let iter = self.config.casing.with("Iter", "iter", "iter");
+				let player = self.config.casing.with("Player", "player", "player");
+				let value = self.config.casing.with("Value", "value", "value");
+
+				self.push_indent();
+				self.push(&format!("{iter}: Iter<LuaTuple<[{index}: number, {player}: Player"));
+
+				for (index, parameter) in ev.data.iter().enumerate() {
+					let name = match parameter.name {
+						Some(name) => name.to_string(),
+						None => {
+							if index > 0 {
+								format!("{value}{}", index + 1)
+							} else {
+								value.to_string()
+							}
+						}
+					};
+
+					self.push(&format!(", {}: ", name));
+					self.push_ty(&parameter.ty);
 				}
-				EvCall::ManySync | EvCall::ManyAsync => self.config.casing.with("On", "on", "on"),
-			};
-			let callback = self.config.casing.with("Callback", "callback", "callback");
-			let player = self.config.casing.with("Player", "player", "player");
 
-			self.push_indent();
-			self.push(&format!("{set_callback}: ({callback}: ({player}: Player"));
+				self.push("]>>;\n");
+			} else {
+				let set_callback = match ev.call {
+					EvCall::SingleSync | EvCall::SingleAsync => {
+						self.config.casing.with("SetCallback", "setCallback", "set_callback")
+					}
+					EvCall::ManySync | EvCall::ManyAsync => self.config.casing.with("On", "on", "on"),
+					_ => unreachable!(),
+				};
 
-			if !ev.data.is_empty() {
-				self.push(", ");
-				self.push_parameters(&ev.data);
+				let callback = self.config.casing.with("Callback", "callback", "callback");
+				let player = self.config.casing.with("Player", "player", "player");
+
+				self.push_indent();
+				self.push(&format!("{set_callback}: ({callback}: ({player}: Player"));
+
+				if !ev.data.is_empty() {
+					self.push(", ");
+					self.push_parameters(&ev.data);
+				}
+
+				self.push(") => void) => () => void;\n");
 			}
-
-			self.push(") => void) => () => void;\n");
 
 			self.dedent();
 			self.push_line("};");
@@ -256,6 +286,10 @@ impl<'a> ServerOutput<'a> {
 		if self.config.evdecls.is_empty() && self.config.fndecls.is_empty() {
 			return self.buf;
 		};
+
+		if self.config.evdecls.iter().any(|ev| ev.call == EvCall::Polling) {
+			self.push_iter_type()
+		}
 
 		self.push_event_loop();
 

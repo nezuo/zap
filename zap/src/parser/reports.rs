@@ -33,6 +33,10 @@ pub enum Report<'src> {
 
 	AnalyzeEmptyEvDecls,
 
+	AnalyzeMissingEvDeclCall {
+		span: Span,
+	},
+
 	#[allow(dead_code)]
 	AnalyzeOversizeUnreliable {
 		ev_span: Span,
@@ -131,6 +135,7 @@ impl Report<'_> {
 			Self::ParserExpectedInt { .. } => Severity::Error,
 
 			Self::AnalyzeEmptyEvDecls => Severity::Warning,
+			Self::AnalyzeMissingEvDeclCall { .. } => Severity::Error,
 			Self::AnalyzeOversizeUnreliable { .. } => Severity::Error,
 			Self::AnalyzePotentiallyOversizeUnreliable { .. } => Severity::Warning,
 			Self::AnalyzeInvalidRange { .. } => Severity::Error,
@@ -164,6 +169,7 @@ impl Report<'_> {
 			Self::ParserExpectedInt { .. } => "expected integer".to_string(),
 
 			Self::AnalyzeEmptyEvDecls => "no event or function declarations".to_string(),
+			Self::AnalyzeMissingEvDeclCall { .. } => "missing `call` field and `call_default` option".to_string(),
 			Self::AnalyzeOversizeUnreliable { .. } => "oversize unreliable".to_string(),
 			Self::AnalyzePotentiallyOversizeUnreliable { .. } => "potentially oversize unreliable".to_string(),
 			Self::AnalyzeInvalidRange { .. } => "invalid range".to_string(),
@@ -211,6 +217,7 @@ impl Report<'_> {
 			Self::AnalyzeNamedReturn { .. } => "3016",
 			Self::AnalyzeInvalidVectorType { .. } => "3017",
 			Self::AnalyzeOversizeVectorComponent { .. } => "3018",
+			Self::AnalyzeMissingEvDeclCall { .. } => "3019",
 		}
 	}
 
@@ -235,6 +242,10 @@ impl Report<'_> {
 			}
 
 			Self::AnalyzeEmptyEvDecls => vec![],
+
+			Self::AnalyzeMissingEvDeclCall { span } => {
+				vec![Label::primary((), span.clone()).with_message("expected call")]
+			}
 
 			Self::AnalyzeOversizeUnreliable { ev_span, ty_span, .. } => {
 				vec![
@@ -342,6 +353,9 @@ impl Report<'_> {
 			Self::AnalyzeEmptyEvDecls => Some(vec![
 				"add an event or function declaration to allow zap to output code".to_string()
 			]),
+			Self::AnalyzeMissingEvDeclCall { .. } => {
+				Some(vec!["specify `call` or use the `call_default` option".to_string()])
+			}
 			Self::AnalyzeOversizeUnreliable { .. } => Some(vec![
 				format!("all unreliable events must be under {MAX_UNRELIABLE_SIZE} bytes in size"),
 				"consider adding a upper limit to any arrays or strings".to_string(),

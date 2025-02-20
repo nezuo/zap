@@ -1,7 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::config::{
-	Casing, Config, Enum, EvDecl, EvSource, EvType, FnDecl, NumTy, Parameter, Range, Struct, Ty, TyDecl, YieldType,
+	Casing, Config, Enum, EvCall, EvDecl, EvSource, EvType, FnDecl, NumTy, Parameter, Range, Struct, Ty, TyDecl,
+	YieldType,
 };
 
 use super::{
@@ -128,6 +129,7 @@ impl<'src> Converter<'src> {
 		let (tooling_output, ..) = self.str_opt("tooling_output", "network/tooling.lua", &config.opts);
 
 		let casing = self.casing_opt(&config.opts);
+		let call_default = self.call_default_opt(&config.opts);
 		let yield_type = self.yield_type_opt(typescript, &config.opts);
 		let async_lib = self.async_lib(yield_type, &config.opts, typescript);
 		let (disable_fire_all, ..) = self.boolean_opt("disable_fire_all", false, &config.opts);
@@ -155,6 +157,7 @@ impl<'src> Converter<'src> {
 			tooling_output,
 
 			casing,
+			call_default,
 			yield_type,
 			async_lib,
 			disable_fire_all,
@@ -247,6 +250,38 @@ impl<'src> Converter<'src> {
 			});
 
 			None
+		}
+	}
+
+	fn call_default_opt(&mut self, opts: &[SyntaxOpt<'src>]) -> Option<EvCall> {
+		let opt = opts.iter().find(|opt| opt.name.name == "call_default")?;
+
+		let (value, span) = if let SyntaxOptValueKind::Str(opt_value) = &opt.value.kind {
+			(Some(self.str(opt_value)), Some(opt_value.span()))
+		} else {
+			self.report(Report::AnalyzeInvalidOptValue {
+				span: opt.value.span(),
+				expected: "`\"SingleSync\", \"ManySync\", \"SingleAsync\", \"ManyAsync\", or \"Polling\".",
+			});
+
+			(None, None)
+		};
+
+		match (value, span) {
+			(Some("SingleSync"), ..) => Some(EvCall::SingleSync),
+			(Some("ManySync"), ..) => Some(EvCall::ManySync),
+			(Some("SingleAsync"), ..) => Some(EvCall::SingleAsync),
+			(Some("ManyAsync"), ..) => Some(EvCall::ManyAsync),
+			(Some("Polling"), ..) => Some(EvCall::Polling),
+			(_, Some(span)) => {
+				self.report(Report::AnalyzeInvalidOptValue {
+					span,
+					expected: "`\"SingleSync\", \"ManySync\", \"SingleAsync\", \"ManyAsync\", or \"Polling\".",
+				});
+
+				None
+			}
+			_ => None,
 		}
 	}
 
@@ -381,7 +416,16 @@ impl<'src> Converter<'src> {
 		let name = evdecl.name.name;
 		let from = evdecl.from;
 		let evty = evdecl.evty;
-		let call = evdecl.call;
+		let call = if let Some(call) = evdecl.call {
+			call
+		} else if let Some(default) = self.call_default_opt(&self.config.opts.clone()) {
+			default
+		} else {
+			self.report(Report::AnalyzeMissingEvDeclCall { span: evdecl.span() });
+
+			// This value is not a default, it's only to allow execution to continue until error reporting.
+			EvCall::ManySync
+		};
 		let data = evdecl.data.as_ref().map(|parameters| {
 			parameters
 				.parameters
