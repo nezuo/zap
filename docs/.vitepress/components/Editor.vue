@@ -114,7 +114,7 @@ const beforeMount = (monaco: Monaco) => {
 
 	const Calls = ["SingleSync", "SingleAsync", "ManySync", "ManyAsync", "Polling"] as const;
 
-	const Options = ["write_checks", "typescript", "typescript_max_tuple_length", "manual_event_loop", "remote_scope", "remote_folder", "server_output", "client_output", "casing", "yield_type", "async_lib", "tooling", "tooling_output", "tooling_show_internal_data", "disable_fire_all"] as const;
+	const Options = ["write_checks", "typescript", "typescript_max_tuple_length", "manual_event_loop", "remote_scope", "remote_folder", "server_output", "client_output", "casing", "yield_type", "async_lib", "tooling", "tooling_output", "tooling_show_internal_data", "disable_fire_all", "types_output", "call_default"] as const;
 
 	const Casing = ["PascalCase", "camelCase", "snake_case"].map((value) => `"${value}"`);
 	const YieldType = ["yield", "future", "promise"].map((value) => `"${value}"`);
@@ -176,7 +176,7 @@ const beforeMount = (monaco: Monaco) => {
 		async_lib: [],
 		disable_fire_all: Operators,
 
-		call_default: Calls
+		call_default: Calls.map((value) => `"${value}"`)
 	} as const;
 
 	monaco.languages.registerTokensProviderFactory("zapConfig", {

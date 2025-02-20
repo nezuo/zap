@@ -62,6 +62,20 @@
 			:isCodeBlock="false"
 		/>
 	</PluginTabsTab>
+	<PluginTabsTab label="Types" v-if="compiledResult.code && compiledResult.code.types">
+		<CodeBlock
+			:code="compiledResult.code.types.code"
+			lang="lua"
+			:isCodeBlock="false"
+		/>
+	</PluginTabsTab>
+	<PluginTabsTab label="Types (TS)" v-if="isTypeScript && compiledResult.code && compiledResult.code.types">
+		<CodeBlock
+			:code="compiledResult.code.types.defs"
+			lang="typescript"
+			:isCodeBlock="false"
+		/>
+	</PluginTabsTab>
 </PluginTabs>
 
 </ClientOnly>
