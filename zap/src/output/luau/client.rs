@@ -102,14 +102,17 @@ impl<'src> ClientOutput<'src> {
 					self.push_line("end)");
 					self.dedent();
 					self.push_line("end");
-				},
+				}
 				YieldType::Promise => {
 					self.push("function()\n");
 					self.indent();
-					self.push_line(&format!("return Promise.reject(\"{} called when game is not running\")", fndecl.name));
+					self.push_line(&format!(
+						"return Promise.reject(\"{} called when game is not running\")",
+						fndecl.name
+					));
 					self.dedent();
 					self.push_line("end");
-				},
+				}
 			}
 
 			self.dedent();
