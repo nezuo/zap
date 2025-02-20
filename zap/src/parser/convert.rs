@@ -10,7 +10,7 @@ use super::{
 };
 
 // We subtract two for the `inst` array.
-pub const MAX_UNRELIABLE_SIZE: usize = 898;
+pub const MAX_UNRELIABLE_SIZE: usize = 998;
 
 struct Converter<'src> {
 	config: SyntaxConfig<'src>,
