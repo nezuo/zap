@@ -19,6 +19,8 @@ on:
       - '**.rs'
       - 'Cargo.{lock,toml}'
 
+  workflow_dispatch: {}
+
 jobs:
   build:
     name: Build and Test
@@ -31,13 +33,20 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          target: wasm32-unknown-unknown
           override: true
           profile: minimal
 
       - uses: Swatinem/rust-cache@v2
 
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - name: Build
         run: cargo build --locked --verbose
+
+      - name: Build (WASM)
+        run: wasm-pack build zap -d package
 
       - name: Test
         run: cargo test --locked --verbose
