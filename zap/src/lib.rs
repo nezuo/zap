@@ -134,6 +134,10 @@ pub fn run(input: &str, no_warnings: bool) -> Return {
 						code: output::luau::client::code(&config),
 						defs: output::typescript::client::code(&config),
 					},
+					types: config.types_output.map(|_| Output {
+						code: output::luau::types::code(&config),
+						defs: output::typescript::types::code(&config),
+					}),
 					tooling: output::tooling::output(&config),
 				}),
 				diagnostics,
