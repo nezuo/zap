@@ -462,6 +462,11 @@ impl<'src> ToolingOutput<'src> {
 
 		self.push_unreliable_events();
 
+		self.push_line("else");
+		self.indent();
+		self.push_line("error(`Unknown remote instance: {remote_instance}`)");
+		self.dedent();
+
 		self.push_line("end");
 
 		self.dedent();
@@ -549,7 +554,7 @@ impl<'src> ToolingOutput<'src> {
 			self.push_indent();
 			self.push("elseif ");
 
-			if ev_decl.from == EvSource::Client {
+			if ev_decl.from == EvSource::Server {
 				self.push("not ");
 			}
 
