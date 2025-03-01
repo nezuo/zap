@@ -462,11 +462,6 @@ impl<'src> ToolingOutput<'src> {
 
 		self.push_unreliable_events();
 
-		self.push_line("else");
-		self.indent();
-		self.push_line("error(`Unknown remote instance: {remote_instance}`)");
-		self.dedent();
-
 		self.push_line("end");
 
 		self.dedent();
