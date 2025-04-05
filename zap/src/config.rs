@@ -181,7 +181,7 @@ pub enum Ty<'src> {
 	Map(Box<Ty<'src>>, Box<Ty<'src>>),
 	Set(Box<Ty<'src>>),
 	Opt(Box<Ty<'src>>),
-	Ref(&'src str),
+	Ref(&'src str, Option<NumTy>),
 
 	Enum(Enum<'src>),
 	Struct(Struct<'src>),
@@ -256,9 +256,9 @@ impl<'src> Ty<'src> {
 				}
 			}
 
-			Self::Map(..) => (2, None),
+			Self::Map(..) => (self.variants_size().unwrap().size(), None),
 
-			Self::Set(..) => (2, None),
+			Self::Set(..) => (self.variants_size().unwrap().size(), None),
 
 			Self::Opt(ty) => {
 				let (_, ty_max) = ty.size(tydecls, recursed);
@@ -266,7 +266,7 @@ impl<'src> Ty<'src> {
 				(1, ty_max.map(|ty_max| ty_max + 1))
 			}
 
-			Self::Ref(name) => {
+			Self::Ref(name, ..) => {
 				if recursed.contains(name) {
 					// 0 is returned here because all valid recursive types are
 					// bounded and all bounded types have their own min size
@@ -316,6 +316,16 @@ impl<'src> Ty<'src> {
 			Self::AlignedCFrame => (13, Some(13)),
 			Self::CFrame => (24, Some(24)),
 			Self::Unknown => (0, None),
+		}
+	}
+
+	pub fn variants_size(&self) -> Option<NumTy> {
+		match self {
+			// note the lack of - 1 here, it's because we need to store 0 length as well.
+			Ty::Enum(Enum::Unit(variants)) => Some(NumTy::from_f64(0.0, variants.len() as f64)),
+			Ty::Enum(Enum::Tagged { variants, .. }) => Some(NumTy::from_f64(0.0, variants.len() as f64)),
+			Ty::Ref(.., variants_size) => *variants_size,
+			_ => None,
 		}
 	}
 }
