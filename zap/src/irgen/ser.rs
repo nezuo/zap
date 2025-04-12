@@ -105,13 +105,20 @@ impl Ser<'_> {
 					self.push_writestring(from_expr, len.into());
 				} else {
 					let (len_name, len_expr) = self.add_occurrence("len");
+					let (len_numty, len_offset) = range.numty();
+
 					self.push_local(len_name.clone(), Some(from_expr.clone().len()));
 
 					if self.checks {
 						self.push_range_check(len_expr.clone(), *range);
 					}
 
-					self.push_writenumty(len_expr.clone(), range.numty().unwrap_or(NumTy::U16));
+					let mut offset_len_expr = len_expr.clone();
+					if len_offset != 0.0 {
+						offset_len_expr = offset_len_expr.sub(Expr::Num(len_offset))
+					}
+
+					self.push_writenumty(offset_len_expr, len_numty);
 					self.push_writestring(from_expr, len_expr.clone());
 				}
 			}
@@ -131,6 +138,8 @@ impl Ser<'_> {
 					self.push_write_copy(from_expr, len.into());
 				} else {
 					let (len_name, len_expr) = self.add_occurrence("len");
+					let (len_numty, len_offset) = range.numty();
+
 					self.push_local(
 						len_name.clone(),
 						Some(Var::from("buffer").nindex("len").call(vec![from_expr.clone()])),
@@ -140,7 +149,12 @@ impl Ser<'_> {
 						self.push_range_check(len_expr.clone(), *range);
 					}
 
-					self.push_writenumty(len_expr.clone(), range.numty().unwrap_or(NumTy::U16));
+					let mut offset_len_expr = len_expr.clone();
+					if len_offset != 0.0 {
+						offset_len_expr = offset_len_expr.sub(Expr::Num(len_offset))
+					}
+
+					self.push_writenumty(offset_len_expr, len_numty);
 					self.push_write_copy(from_expr, len_name.as_str().into())
 				}
 			}
@@ -163,13 +177,20 @@ impl Ser<'_> {
 					self.push_stmt(Stmt::End);
 				} else {
 					let (len_name, len_expr) = self.add_occurrence("len");
+					let (len_numty, len_offset) = range.numty();
+
 					self.push_local(len_name.clone(), Some(from_expr.clone().len()));
 
 					if self.checks {
 						self.push_range_check(len_expr.clone(), *range);
 					}
 
-					self.push_writenumty(len_expr.clone(), range.numty().unwrap_or(NumTy::U16));
+					let mut offset_len_expr = len_expr.clone();
+					if len_offset != 0.0 {
+						offset_len_expr = offset_len_expr.sub(Expr::Num(len_offset))
+					}
+
+					self.push_writenumty(offset_len_expr, len_numty);
 
 					self.push_stmt(Stmt::NumFor {
 						var: var_name.clone(),

@@ -217,11 +217,11 @@ impl<'src> Ty<'src> {
 				if let Some(exact) = len.exact() {
 					(exact as usize, Some(exact as usize))
 				} else {
-					let len_size = len.numty().unwrap_or(NumTy::U16).size();
+					let (len_numty, ..) = len.numty();
 
 					(
-						len.min().map(|min| min as usize).unwrap_or(0) + len_size,
-						len.max().map(|max| (max as usize) + len_size),
+						len.min().map(|min| min as usize).unwrap_or(0) + len_numty.size(),
+						len.max().map(|max| max as usize + len_numty.size()),
 					)
 				}
 			}
@@ -230,11 +230,11 @@ impl<'src> Ty<'src> {
 				if let Some(exact) = len.exact() {
 					(exact as usize, Some(exact as usize))
 				} else {
-					let len_size = len.numty().unwrap_or(NumTy::U16).size();
+					let (len_numty, ..) = len.numty();
 
 					(
-						len.min().map(|min| min as usize).unwrap_or(0) + len_size,
-						len.max().map(|max| (max as usize) + len_size),
+						len.min().map(|min| min as usize).unwrap_or(0) + len_numty.size(),
+						len.max().map(|max| max as usize + len_numty.size()),
 					)
 				}
 			}
@@ -242,17 +242,17 @@ impl<'src> Ty<'src> {
 			Self::Arr(ty, len) => {
 				let (ty_min, ty_max) = ty.size(tydecls, recursed);
 				let len_min = len.min().map(|min| min as usize).unwrap_or(0);
-				let len_size = len.numty().unwrap_or(NumTy::U16).size();
+				let (len_numty, ..) = len.numty();
 
 				if let Some(exact) = len.exact() {
-					(ty_min * (exact as usize), ty_max.map(|max| ty_max.unwrap() * max))
-				} else if let Some(len_max) = len.max() {
-					(
-						ty_min * len_min + len_size,
-						ty_max.map(|ty_max| ty_max * (len_max as usize) + len_size),
-					)
+					(ty_min * (exact as usize), ty_max.map(|max| max * exact as usize))
 				} else {
-					(ty_min * len_min + len_size, None)
+					(
+						ty_min * len_min + len_numty.size(),
+						ty_max
+							.zip(len.max())
+							.map(|(ty_max, max)| ty_max * max as usize + len_numty.size()),
+					)
 				}
 			}
 
@@ -442,8 +442,17 @@ impl Range {
 		}
 	}
 
-	pub fn numty(&self) -> Option<NumTy> {
-		Some(NumTy::from_f64(self.min.unwrap_or(0.0), self.max?))
+	pub fn numty(&self) -> (NumTy, f64) {
+		let min = self.min.unwrap_or(0.0);
+		let Some(max) = self.max else { return (NumTy::U16, 0.0) };
+
+		let (min, max, offset) = if min > 0.0 {
+			(0.0, max - min, min)
+		} else {
+			(min, max, 0.0)
+		};
+
+		(NumTy::from_f64(min, max), offset)
 	}
 }
 
