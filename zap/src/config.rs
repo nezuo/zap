@@ -1,5 +1,7 @@
 use std::{collections::HashSet, fmt::Display};
 
+pub const UNRELIABLE_ORDER_NUMTY: NumTy = NumTy::U16;
+
 #[derive(Debug, Clone)]
 pub struct Config<'src> {
 	pub tydecls: Vec<TyDecl<'src>>,
@@ -44,7 +46,7 @@ impl Config<'_> {
 	pub fn server_unreliable_count(&self) -> usize {
 		self.evdecls
 			.iter()
-			.filter(|evdecl| evdecl.from == EvSource::Client && evdecl.evty == EvType::Unreliable)
+			.filter(|evdecl| evdecl.from == EvSource::Client && matches!(evdecl.evty, EvType::Unreliable(_)))
 			.count()
 	}
 
@@ -61,7 +63,7 @@ impl Config<'_> {
 	pub fn client_unreliable_count(&self) -> usize {
 		self.evdecls
 			.iter()
-			.filter(|evdecl| evdecl.from == EvSource::Server && evdecl.evty == EvType::Unreliable)
+			.filter(|evdecl| evdecl.from == EvSource::Server && matches!(evdecl.evty, EvType::Unreliable(_)))
 			.count()
 	}
 
@@ -150,7 +152,7 @@ pub enum EvSource {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum EvType {
 	Reliable,
-	Unreliable,
+	Unreliable(bool),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

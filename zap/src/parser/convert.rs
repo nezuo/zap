@@ -5,7 +5,7 @@ use std::{
 
 use crate::config::{
 	Casing, Config, Enum, EvCall, EvDecl, EvSource, EvType, FnDecl, NonPrimitiveTy, NumTy, Parameter, PrimitiveTy,
-	Range, Struct, Ty, TyDecl, YieldType,
+	Range, Struct, Ty, TyDecl, YieldType, UNRELIABLE_ORDER_NUMTY,
 };
 
 use super::{
@@ -73,7 +73,7 @@ impl<'src> Converter<'src> {
 						client_reliable_id += 1;
 						current_id
 					}
-					EvType::Unreliable => {
+					EvType::Unreliable(_) => {
 						let current_id = client_unreliable_id;
 						client_unreliable_id += 1;
 						current_id
@@ -85,7 +85,7 @@ impl<'src> Converter<'src> {
 						server_reliable_id += 1;
 						current_id
 					}
-					EvType::Unreliable => {
+					EvType::Unreliable(_) => {
 						let current_id = server_unreliable_id;
 						server_unreliable_id += 1;
 						current_id
@@ -431,9 +431,13 @@ impl<'src> Converter<'src> {
 				.collect::<Vec<_>>()
 		});
 
-		if data.is_some() && evty == EvType::Unreliable {
-			let mut min = 0;
-			let mut max = Some(0);
+		if data.is_some() && matches!(evty, EvType::Unreliable(_)) {
+			let start_size = match evty {
+				EvType::Unreliable(true) => UNRELIABLE_ORDER_NUMTY.size(),
+				_ => 0,
+			};
+			let mut min = start_size;
+			let mut max = Some(start_size);
 
 			for parameter in data.as_ref().unwrap() {
 				let (ty_min, ty_max) = parameter.ty.size(&mut HashSet::new());

@@ -6,11 +6,13 @@ local outgoing_used: number
 local outgoing_size: number
 local outgoing_inst: { Instance }
 local outgoing_apos: number
+local outgoing_ids: { number }
 
 local incoming_buff: buffer
 local incoming_read: number
 local incoming_inst: { Instance }
 local incoming_ipos: number
+local incoming_ids: { number }
 
 -- thanks to https://dom.rojo.space/binary.html#cframe
 local CFrameSpecialCases = {
@@ -71,6 +73,8 @@ local function save()
 		used = outgoing_used,
 		size = outgoing_size,
 		inst = outgoing_inst,
+		outgoing_ids = outgoing_ids,
+		incoming_ids = incoming_ids,
 	}
 end
 
@@ -79,11 +83,15 @@ local function load(data: {
 	used: number,
 	size: number,
 	inst: { Instance },
+	outgoing_ids: { number },
+	incoming_ids: { number },
 })
 	outgoing_buff = data.buff
 	outgoing_used = data.used
 	outgoing_size = data.size
 	outgoing_inst = data.inst
+	outgoing_ids = data.outgoing_ids
+	incoming_ids = data.incoming_ids
 end
 
 local function load_empty()
@@ -91,6 +99,8 @@ local function load_empty()
 	outgoing_used = 0
 	outgoing_size = 64
 	outgoing_inst = {}
+	outgoing_ids = {}
+	incoming_ids = {}
 end
 
 load_empty()

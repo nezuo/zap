@@ -1,9 +1,12 @@
 use std::{cmp::max, collections::HashMap};
 
 use crate::{
-	config::{Config, EvCall, EvDecl, EvSource, EvType, FnCall, FnDecl, Parameter, TyDecl},
+	config::{Config, EvCall, EvDecl, EvSource, EvType, FnCall, FnDecl, Parameter, TyDecl, UNRELIABLE_ORDER_NUMTY},
 	irgen::{des, ser},
-	output::{get_named_values, get_unnamed_values, luau::events_table_name, luau::polling_queues_name},
+	output::{
+		get_named_values, get_unnamed_values,
+		luau::{events_table_name, polling_queues_name},
+	},
 };
 
 use super::Output;
@@ -532,6 +535,27 @@ impl<'a> ServerOutput<'a> {
 		self.push_line("incoming_read = 0");
 		self.push_line("incoming_ipos = 0");
 
+		if ev.evty == EvType::Unreliable(true) {
+			self.push_line("local saved = save()");
+			self.push_line("load_player(player)");
+			self.push_line(&format!(
+				"local order_id = buffer.read{UNRELIABLE_ORDER_NUMTY}(incoming_buff, read({}))",
+				UNRELIABLE_ORDER_NUMTY.size()
+			));
+			let last = format!("incoming_ids[{id}]");
+			self.push_line(&format!(
+				"if {last} and order_id <= {last} and {last} - order_id < {} then",
+				(UNRELIABLE_ORDER_NUMTY.max() / 2.0).floor(),
+			));
+			self.indent();
+			self.push_line("return");
+			self.dedent();
+			self.push_line("end");
+			self.push_line(&format!("{last} = order_id"));
+			self.push_line("player_map[player] = save()");
+			self.push_line("load(saved)");
+		}
+
 		let values = self.get_values(&ev.data);
 
 		self.push_line(&format!("local {}", values));
@@ -580,7 +604,7 @@ impl<'a> ServerOutput<'a> {
 			.config
 			.evdecls
 			.iter()
-			.filter(|ev_decl| ev_decl.from == EvSource::Client && ev_decl.evty == EvType::Unreliable)
+			.filter(|ev_decl| ev_decl.from == EvSource::Client && matches!(ev_decl.evty, EvType::Unreliable(_)))
 		{
 			self.push_unreliable_callback(ev);
 		}
@@ -603,7 +627,7 @@ impl<'a> ServerOutput<'a> {
 		}) {
 			match evdecl.evty {
 				EvType::Reliable => self.push_line(&format!("reliable_events[{}] = {{}}", evdecl.id)),
-				EvType::Unreliable => self.push_line(&format!("unreliable_events[{}] = {{}}", evdecl.id)),
+				EvType::Unreliable(_) => self.push_line(&format!("unreliable_events[{}] = {{}}", evdecl.id)),
 			}
 		}
 	}
@@ -615,9 +639,18 @@ impl<'a> ServerOutput<'a> {
 		self.push_line(&format!("buffer.write{}(outgoing_buff, outgoing_apos, {id})", num_ty));
 	}
 
+	fn push_alloc_order_id(&mut self) {
+		self.push_line(&format!(
+			"local order_id_apos = alloc({})",
+			UNRELIABLE_ORDER_NUMTY.size()
+		));
+	}
+
 	fn push_write_evdecl_event_id(&mut self, ev: &EvDecl) {
-		if ev.evty == EvType::Reliable {
-			self.push_write_event_id(ev.id);
+		match ev.evty {
+			EvType::Reliable => self.push_write_event_id(ev.id),
+			EvType::Unreliable(true) => self.push_alloc_order_id(),
+			EvType::Unreliable(false) => {}
 		}
 	}
 
@@ -643,6 +676,20 @@ impl<'a> ServerOutput<'a> {
 		}
 	}
 
+	fn push_unreliable_order_id(&mut self, player: &str, id: usize) {
+		self.push_line(&format!("load_player({player})"));
+		self.push_line(&format!(
+			"local order_id = ((outgoing_ids[{id}] or -1) + 1) % {}",
+			UNRELIABLE_ORDER_NUMTY.max() + 1.0
+		));
+		self.push_line(&format!("outgoing_ids[{id}] = order_id"));
+		self.push_line(&format!("player_map[{player}] = save()"));
+		self.push_line("load(saved)");
+		self.push_line(&format!(
+			"buffer.write{UNRELIABLE_ORDER_NUMTY}(buff, order_id_apos, order_id)"
+		));
+	}
+
 	fn push_return_fire(&mut self, ev: &EvDecl) {
 		let parameters = &ev.data;
 
@@ -663,7 +710,7 @@ impl<'a> ServerOutput<'a> {
 
 		match ev.evty {
 			EvType::Reliable => self.push_line(&format!("load_player({player})")),
-			EvType::Unreliable => self.push_line("load_empty()"),
+			EvType::Unreliable(_) => self.push_line("load_empty()"),
 		}
 
 		self.push_write_evdecl_event_id(ev);
@@ -680,9 +727,13 @@ impl<'a> ServerOutput<'a> {
 
 		match ev.evty {
 			EvType::Reliable => self.push_line(&format!("player_map[{player}] = save()")),
-			EvType::Unreliable => {
+			EvType::Unreliable(ordered) => {
 				self.push_line("local buff = buffer.create(outgoing_used)");
 				self.push_line("buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)");
+				if ordered {
+					self.push_line("local saved = save()");
+					self.push_unreliable_order_id(player, ev.id);
+				}
 				self.push_line(&format!(
 					"unreliable[{}]:FireClient({player}, buff, outgoing_inst)",
 					ev.id + 1
@@ -738,13 +789,26 @@ impl<'a> ServerOutput<'a> {
 				self.push_line("end");
 			}
 
-			EvType::Unreliable => {
+			EvType::Unreliable(ordered) => {
 				self.push_line("local buff = buffer.create(outgoing_used)");
 				self.push_line("buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)");
-				self.push_line(&format!(
-					"unreliable[{}]:FireAllClients(buff, outgoing_inst)",
-					ev.id + 1
-				));
+				if ordered {
+					self.push_line("local saved = save()");
+					self.push_line("for _, player in Players:GetPlayers() do");
+					self.indent();
+					self.push_unreliable_order_id("player", ev.id);
+					self.push_line(&format!(
+						"unreliable[{}]:FireClient(player, buff, outgoing_inst)",
+						ev.id + 1
+					));
+					self.dedent();
+					self.push_line("end");
+				} else {
+					self.push_line(&format!(
+						"unreliable[{}]:FireAllClients(buff, outgoing_inst)",
+						ev.id + 1
+					));
+				}
 			}
 		}
 
@@ -802,13 +866,19 @@ impl<'a> ServerOutput<'a> {
 				self.push_line("end");
 			}
 
-			EvType::Unreliable => {
+			EvType::Unreliable(ordered) => {
 				self.push_line("local buff = buffer.create(outgoing_used)");
 				self.push_line("buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)");
+				if ordered {
+					self.push_line("local saved = save()");
+				}
 				self.push_line("for _, player in Players:GetPlayers() do");
 				self.indent();
 				self.push_line(&format!("if player ~= {except} then"));
 				self.indent();
+				if ordered {
+					self.push_unreliable_order_id("player", ev.id);
+				}
 				self.push_line(&format!(
 					"unreliable[{}]:FireClient(player, buff, outgoing_inst)",
 					ev.id + 1
@@ -870,11 +940,17 @@ impl<'a> ServerOutput<'a> {
 				self.push_line("end");
 			}
 
-			EvType::Unreliable => {
+			EvType::Unreliable(ordered) => {
 				self.push_line("local buff = buffer.create(outgoing_used)");
 				self.push_line("buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)");
+				if ordered {
+					self.push_line("local saved = save()");
+				}
 				self.push_line(&format!("for _, player in {list} do"));
 				self.indent();
+				if ordered {
+					self.push_unreliable_order_id("player", ev.id);
+				}
 				self.push_line(&format!(
 					"unreliable[{}]:FireClient(player, buff, outgoing_inst)",
 					ev.id + 1
@@ -934,11 +1010,17 @@ impl<'a> ServerOutput<'a> {
 				self.push_line("end");
 			}
 
-			EvType::Unreliable => {
+			EvType::Unreliable(ordered) => {
 				self.push_line("local buff = buffer.create(outgoing_used)");
 				self.push_line("buffer.copy(buff, 0, outgoing_buff, 0, outgoing_used)");
+				if ordered {
+					self.push_line("local saved = save()");
+				}
 				self.push_line(&format!("for player in {set} do"));
 				self.indent();
+				if ordered {
+					self.push_unreliable_order_id("player", ev.id);
+				}
 				self.push_line(&format!(
 					"unreliable[{}]:FireClient(player, buff, outgoing_inst)",
 					ev.id + 1
@@ -1410,7 +1492,7 @@ impl<'a> ServerOutput<'a> {
 			.config
 			.evdecls
 			.iter()
-			.any(|ev| ev.evty == EvType::Unreliable && ev.from == EvSource::Client)
+			.any(|ev| matches!(ev.evty, EvType::Unreliable(_)) && ev.from == EvSource::Client)
 		{
 			self.push_unreliable();
 		}

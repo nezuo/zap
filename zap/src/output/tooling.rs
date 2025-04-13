@@ -1,7 +1,7 @@
 use std::{cmp::max, collections::HashMap};
 
 use crate::{
-	config::{Config, EvDecl, EvSource, EvType, FnDecl, NumTy, TyDecl},
+	config::{Config, EvDecl, EvSource, EvType, FnDecl, NumTy, TyDecl, UNRELIABLE_ORDER_NUMTY},
 	irgen::{des, Stmt},
 	output::get_unnamed_values,
 	Output,
@@ -139,6 +139,18 @@ impl<'src> ToolingOutput<'src> {
 
 	fn push_event_callback(&mut self, ev: &EvDecl) {
 		let values = get_unnamed_values("value", ev.data.len());
+		let id = match ev.evty {
+			EvType::Reliable => "id".to_string(),
+			// unreliable events are infered from the RemoteEvent rather than the deserialised event value
+			EvType::Unreliable(_) => ev.id.to_string(),
+		};
+
+		if let EvType::Unreliable(true) = ev.evty {
+			self.push_line(&format!(
+				"local order_id = buffer.read{UNRELIABLE_ORDER_NUMTY}(incoming_buff, read({}))",
+				UNRELIABLE_ORDER_NUMTY.size()
+			));
+		}
 
 		if !ev.data.is_empty() {
 			self.push_line(&format!("local {}", values.join(", ")));
@@ -162,9 +174,18 @@ impl<'src> ToolingOutput<'src> {
 
 		if self.config.tooling_show_internal_data {
 			self.push(&format!(
-				"{{ {} = id }}, ",
-				self.config.casing.with("EventId", "eventId", "event_id")
+				"{{ {} = {id}",
+				self.config.casing.with("EventId", "eventId", "event_id"),
 			));
+
+			if let EvType::Unreliable(true) = ev.evty {
+				self.push(&format!(
+					", {} = order_id",
+					self.config.casing.with("OrderId", "orderId", "order_id")
+				))
+			}
+
+			self.push(" }, ");
 		}
 
 		self.push(&format!("{} }}", values.join(", ")));
@@ -542,7 +563,7 @@ impl<'src> ToolingOutput<'src> {
 			.config
 			.evdecls
 			.iter()
-			.filter(|ev_decl| ev_decl.evty == EvType::Unreliable)
+			.filter(|ev_decl| matches!(ev_decl.evty, EvType::Unreliable(_)))
 		{
 			self.push_indent();
 			self.push("elseif ");
