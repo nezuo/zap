@@ -111,11 +111,9 @@ impl<'src> ToolingOutput<'src> {
 	}
 
 	fn push_tydecl(&mut self, tydecl: &TyDecl) {
-		let name = &tydecl.name;
-		let ty = tydecl.ty.borrow();
-		let ty = &*ty;
+		let ty = &*tydecl.ty.borrow();
 
-		self.push_line(&format!("function types.read_{name}()"));
+		self.push_line(&format!("function types.read_{tydecl}()"));
 		self.indent();
 		self.push_line("local value;");
 		let statements = &des::gen(
@@ -168,7 +166,15 @@ impl<'src> ToolingOutput<'src> {
 		self.push_line("table.insert(events, {");
 		self.indent();
 
-		self.push_line(&format!("Name = \"{}\",", ev.name));
+		self.push_line(&format!(
+			"Name = \"{}\",",
+			ev.path
+				.iter()
+				.copied()
+				.chain(std::iter::once(ev.name))
+				.collect::<Vec<_>>()
+				.join(".")
+		));
 
 		self.push_indent();
 		self.push("Arguments = { ");
@@ -223,6 +229,14 @@ impl<'src> ToolingOutput<'src> {
 
 		self.push_line("local call_id = buffer.readu8(incoming_buff, read(1))");
 
+		let path = fn_decl
+			.path
+			.iter()
+			.copied()
+			.chain(std::iter::once(fn_decl.name))
+			.collect::<Vec<_>>()
+			.join(".");
+
 		if is_server {
 			let values = get_unnamed_values("value", fn_decl.args.len());
 
@@ -241,7 +255,7 @@ impl<'src> ToolingOutput<'src> {
 			self.push_line("table.insert(events, {");
 			self.indent();
 
-			self.push_line(&format!("Name = \"{} (request)\",", fn_decl.name));
+			self.push_line(&format!("Name = \"{path} (request)\","));
 
 			self.push_indent();
 			self.push("Arguments = { ");
@@ -273,7 +287,7 @@ impl<'src> ToolingOutput<'src> {
 			self.push_line("table.insert(events, {");
 			self.indent();
 
-			self.push_line(&format!("Name = \"{} (callback)\",", fn_decl.name));
+			self.push_line(&format!("Name = \"{path} (callback)\","));
 
 			self.push_indent();
 			self.push("Arguments = { ");
@@ -304,7 +318,7 @@ impl<'src> ToolingOutput<'src> {
 			env!("CARGO_PKG_VERSION")
 		));
 
-		if self.config.evdecls.is_empty() && self.config.fndecls.is_empty() {
+		if self.config.evdecls().is_empty() && self.config.fndecls().is_empty() {
 			self.push_line("return function() end");
 			return self.buf;
 		};
@@ -511,7 +525,7 @@ impl<'src> ToolingOutput<'src> {
 
 		let mut first = true;
 
-		for ev in self.config.evdecls.iter() {
+		for ev in self.config.evdecls().iter() {
 			if ev.from != expected_ev_source || ev.evty != expected_ev_type {
 				continue;
 			}
@@ -540,7 +554,7 @@ impl<'src> ToolingOutput<'src> {
 		}
 
 		if expected_ev_type == EvType::Reliable {
-			for fn_decl in self.config.fndecls.iter() {
+			for fn_decl in self.config.fndecls().iter() {
 				self.push_function_callback(first, is_server, fn_decl);
 				first = false;
 			}
@@ -562,7 +576,7 @@ impl<'src> ToolingOutput<'src> {
 	fn push_unreliable_events(&mut self) {
 		for ev_decl in self
 			.config
-			.evdecls
+			.evdecls()
 			.iter()
 			.filter(|ev_decl| matches!(ev_decl.evty, EvType::Unreliable(_)))
 		{

@@ -1,12 +1,33 @@
-use std::{cell::RefCell, collections::HashSet, fmt::Display, rc::Rc};
+use std::{
+	cell::RefCell,
+	collections::{BTreeMap, HashSet},
+	fmt::Display,
+	rc::Rc,
+};
 
 pub const UNRELIABLE_ORDER_NUMTY: NumTy = NumTy::U16;
 
 #[derive(Debug, Clone)]
+pub enum NamespaceEntry<'src> {
+	EvDecl(EvDecl<'src>),
+	FnDecl(FnDecl<'src>),
+	Ns(BTreeMap<&'src str, NamespaceEntry<'src>>),
+}
+
+impl<'src> NamespaceEntry<'src> {
+	pub fn name(&self) -> &'src str {
+		match self {
+			NamespaceEntry::EvDecl(evdecl) => evdecl.name,
+			NamespaceEntry::FnDecl(fndecl) => fndecl.name,
+			NamespaceEntry::Ns(..) => unimplemented!(),
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
 pub struct Config<'src> {
 	pub tydecls: Vec<TyDecl<'src>>,
-	pub evdecls: Vec<EvDecl<'src>>,
-	pub fndecls: Vec<FnDecl<'src>>,
+	pub namespaces: BTreeMap<&'src str, NamespaceEntry<'src>>,
 
 	pub typescript: bool,
 	pub typescript_max_tuple_length: f64,
@@ -32,19 +53,83 @@ pub struct Config<'src> {
 	pub disable_fire_all: bool,
 }
 
-impl Config<'_> {
+impl<'src> Config<'src> {
+	pub fn traverse_namespaces<'a, T, R, C>(&'a self, this: &mut T, mut reset: R, mut cb: C)
+	where
+		R: FnMut(&mut T, usize),
+		C: FnMut(&mut T, &[&'src str], &'a NamespaceEntry<'src>),
+	{
+		let mut stack = self.namespaces.iter().map(|(k, v)| (vec![*k], v)).collect::<Vec<_>>();
+
+		let mut max_depth = 0;
+
+		while let Some((path, entry)) = stack.pop() {
+			let depth = path.len() - 1;
+			if depth < max_depth {
+				reset(this, max_depth - depth)
+			}
+			max_depth = depth;
+
+			cb(this, &path, entry);
+
+			if let NamespaceEntry::Ns(entries) = entry {
+				for (sub_key, sub_entry) in entries.iter() {
+					stack.push((
+						path.iter().copied().chain(std::iter::once(*sub_key)).collect(),
+						sub_entry,
+					));
+				}
+			}
+		}
+
+		if 0 < max_depth {
+			reset(this, max_depth);
+		}
+	}
+
+	pub fn visit_ns_entries<'a, C>(&'a self, mut cb: C)
+	where
+		C: FnMut(&[&'src str], &'a NamespaceEntry<'src>),
+	{
+		self.traverse_namespaces(&mut (), |_, _| {}, |_, path, entry| cb(path, entry));
+	}
+
+	pub fn evdecls<'a>(&'a self) -> Vec<&'a EvDecl<'src>> {
+		let mut evdecls = vec![];
+
+		self.visit_ns_entries(|_, entry| {
+			if let NamespaceEntry::EvDecl(evdecl) = entry {
+				evdecls.push(evdecl)
+			}
+		});
+
+		evdecls
+	}
+
+	pub fn fndecls<'a>(&'a self) -> Vec<&'a FnDecl<'src>> {
+		let mut fndecls = vec![];
+
+		self.visit_ns_entries(|_, entry| {
+			if let NamespaceEntry::FnDecl(fndecl) = entry {
+				fndecls.push(fndecl)
+			}
+		});
+
+		fndecls
+	}
+
 	pub fn server_reliable_count(&self) -> usize {
 		let reliable_count = self
-			.evdecls
+			.evdecls()
 			.iter()
 			.filter(|evdecl| evdecl.from == EvSource::Client && evdecl.evty == EvType::Reliable)
 			.count();
 
-		reliable_count + self.fndecls.len()
+		reliable_count + self.fndecls().len()
 	}
 
 	pub fn server_unreliable_count(&self) -> usize {
-		self.evdecls
+		self.evdecls()
 			.iter()
 			.filter(|evdecl| evdecl.from == EvSource::Client && matches!(evdecl.evty, EvType::Unreliable(_)))
 			.count()
@@ -52,16 +137,16 @@ impl Config<'_> {
 
 	pub fn client_reliable_count(&self) -> usize {
 		let reliable_count = self
-			.evdecls
+			.evdecls()
 			.iter()
 			.filter(|evdecl| evdecl.from == EvSource::Server && evdecl.evty == EvType::Reliable)
 			.count();
 
-		reliable_count + self.fndecls.len()
+		reliable_count + self.fndecls().len()
 	}
 
 	pub fn client_unreliable_count(&self) -> usize {
-		self.evdecls
+		self.evdecls()
 			.iter()
 			.filter(|evdecl| evdecl.from == EvSource::Server && matches!(evdecl.evty, EvType::Unreliable(_)))
 			.count()
@@ -119,6 +204,7 @@ pub struct FnDecl<'src> {
 	pub rets: Option<Vec<Ty<'src>>>,
 	pub client_id: usize,
 	pub server_id: usize,
+	pub path: Vec<&'src str>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -135,6 +221,7 @@ pub struct EvDecl<'src> {
 	pub call: EvCall,
 	pub data: Vec<Parameter<'src>>,
 	pub id: usize,
+	pub path: Vec<&'src str>,
 }
 
 #[derive(Debug, Clone)]
@@ -168,6 +255,17 @@ pub enum EvCall {
 pub struct TyDecl<'src> {
 	pub name: &'src str,
 	pub ty: Rc<RefCell<Ty<'src>>>,
+	pub path: Vec<&'src str>,
+}
+
+impl Display for TyDecl<'_> {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		if self.path.is_empty() {
+			return write!(f, "{}", self.name);
+		}
+
+		write!(f, "__ZAP_NAMESPACE__{}_{}", self.path.join("_"), self.name)
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -180,7 +278,7 @@ pub enum Ty<'src> {
 	Map(Box<Ty<'src>>, Box<Ty<'src>>),
 	Set(Box<Ty<'src>>),
 	Opt(Box<Ty<'src>>),
-	Ref(&'src str, Rc<RefCell<Ty<'src>>>),
+	Ref(TyDecl<'src>),
 
 	Enum(Enum<'src>),
 	Struct(Struct<'src>),
@@ -220,7 +318,7 @@ impl<'src> Ty<'src> {
 	/// Note that this is not the same as the size of the type in the buffer.
 	/// For example, an `Instance` will always send 4 bytes of data, but the
 	/// size of the type in the buffer will be 0 bytes.
-	pub fn size(&self, recursed: &mut HashSet<&'src str>) -> (usize, Option<usize>) {
+	pub fn size(&self, recursed: &mut HashSet<String>) -> (usize, Option<usize>) {
 		match self {
 			Self::Num(numty, ..) => (numty.size(), Some(numty.size())),
 
@@ -295,15 +393,16 @@ impl<'src> Ty<'src> {
 				(1, ty_max.map(|ty_max| ty_max + 1))
 			}
 
-			Self::Ref(name, tydecl) => {
-				if recursed.contains(name) {
+			Self::Ref(tydecl) => {
+				let name = tydecl.to_string();
+				if recursed.contains(&name) {
 					// 0 is returned here because all valid recursive types are
 					// bounded and all bounded types have their own min size
 					(0, None)
 				} else {
-					recursed.insert(name);
+					recursed.insert(name.clone());
 
-					tydecl.borrow().size(recursed)
+					tydecl.ty.borrow().size(recursed)
 				}
 			}
 
@@ -382,7 +481,7 @@ impl<'src> Ty<'src> {
 			}
 			// prevent an increase from u16 on previous versions to u32
 			Ty::Num(num, ..) => return Some((NumTy::U16, (num.min().abs() + num.max()) as usize)),
-			Ty::Ref(.., ty) => return ty.borrow().variants(),
+			Ty::Ref(.., tydecl) => return tydecl.ty.borrow().variants(),
 			_ => None,
 		}
 		// add one to account for things like empty maps, where the 0 must be stored regardless.
@@ -410,7 +509,7 @@ impl<'src> Ty<'src> {
 			Ty::CFrame => PrimitiveTy::Name("CFrame"),
 			Ty::Instance(class) => PrimitiveTy::Instance(*class),
 			Ty::Enum(r#enum) => PrimitiveTy::Enum(r#enum.clone()),
-			Ty::Ref(.., ty) => ty.borrow().primitive_ty(),
+			Ty::Ref(.., tydecl) => tydecl.ty.borrow().primitive_ty(),
 			Ty::Opt(ty) if matches!(**ty, Ty::Unknown) => PrimitiveTy::Unknown,
 			Ty::Unknown => PrimitiveTy::Unknown,
 			Ty::Opt(..) => PrimitiveTy::None(NonPrimitiveTy::Opt),
@@ -429,8 +528,8 @@ pub enum Enum<'src> {
 	},
 }
 
-impl<'src> Enum<'src> {
-	pub fn size(&self, recursed: &mut HashSet<&'src str>) -> (usize, Option<usize>) {
+impl Enum<'_> {
+	pub fn size(&self, recursed: &mut HashSet<String>) -> (usize, Option<usize>) {
 		match self {
 			Self::Unit(enumerators) => {
 				let numty = NumTy::from_f64(0.0, enumerators.len() as f64 - 1.0);
@@ -471,8 +570,8 @@ pub struct Struct<'src> {
 	pub fields: Vec<(&'src str, Ty<'src>)>,
 }
 
-impl<'src> Struct<'src> {
-	pub fn size(&self, recursed: &mut HashSet<&'src str>) -> (usize, Option<usize>) {
+impl Struct<'_> {
+	pub fn size(&self, recursed: &mut HashSet<String>) -> (usize, Option<usize>) {
 		let mut min = 0;
 		let mut max = Some(0);
 

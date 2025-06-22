@@ -49,16 +49,17 @@ impl<'src> TestOutput<'src> {
 	}
 
 	fn push_tydecl(&mut self, tydecl: &TyDecl) {
-		let name = &tydecl.name;
-		let ty = tydecl.ty.borrow();
-		let ty = &*ty;
+		let ty = &*tydecl.ty.borrow();
 
 		self.push_indent();
-		self.push(&format!("export type {name} = "));
+		if tydecl.path.is_empty() {
+			self.push("export ");
+		}
+		self.push(&format!("type {tydecl} = "));
 		self.push_ty(ty);
 		self.push("\n");
 
-		self.push_line(&format!("function types.write_{name}(value: {name})"));
+		self.push_line(&format!("function types.write_{tydecl}(value: {tydecl})"));
 		self.indent();
 		let statements = &ser::gen(
 			&[ty.clone()],
@@ -70,7 +71,7 @@ impl<'src> TestOutput<'src> {
 		self.dedent();
 		self.push_line("end");
 
-		self.push_line(&format!("function types.read_{name}()"));
+		self.push_line(&format!("function types.read_{tydecl}()"));
 		self.indent();
 		self.push_line("local value;");
 		let statements = &des::gen(&[ty.clone()], &["value".to_string()], true, &mut HashMap::new());
@@ -151,11 +152,11 @@ impl<'src> TestOutput<'src> {
 			self.push_tydecl(tydecl);
 		}
 
-		for evdecl in self.config.evdecls.iter() {
+		for evdecl in self.config.evdecls().iter() {
 			self.push_event_callback(&evdecl.data, evdecl.name);
 		}
 
-		for fndecl in self.config.fndecls.iter() {
+		for fndecl in self.config.fndecls().iter() {
 			self.push_event_callback(&fndecl.args, &format!("{}__ARGS", fndecl.name));
 
 			if let Some(rets) = &fndecl.rets {
