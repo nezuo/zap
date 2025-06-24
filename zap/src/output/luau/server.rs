@@ -1000,7 +1000,7 @@ impl<'src> ServerOutput<'src> {
 		let value = self.config.casing.with("Value", "value", "value");
 
 		self.push_indent();
-		self.push(&format!("{fire_set} = function({set}: {{ [Player]: unknown }}"));
+		self.push(&format!("{fire_set} = function({set}: {{ [Player]: any }}"));
 
 		if !parameters.is_empty() {
 			self.push(", ");

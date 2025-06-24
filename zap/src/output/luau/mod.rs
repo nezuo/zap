@@ -108,7 +108,7 @@ pub trait Output {
 			Ty::Set(key) => {
 				self.push("{ [");
 				self.push_ty(key);
-				self.push("]: true");
+				self.push("]: any");
 				self.push(" }");
 			}
 
