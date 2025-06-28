@@ -126,7 +126,7 @@ pub trait Output {
 				Enum::Unit(enumerators) => self.push(
 					&enumerators
 						.iter()
-						.map(|v| format!("\"{}\"", v))
+						.map(|v| format!("\"{v}\""))
 						.collect::<Vec<_>>()
 						.join(" | ")
 						.to_string(),
