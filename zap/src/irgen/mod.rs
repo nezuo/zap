@@ -1,6 +1,5 @@
 #![allow(clippy::should_implement_trait)]
-use std::collections::HashMap;
-use std::{fmt::Display, vec};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, iter, rc::Rc};
 
 use crate::config::{NumTy, Range, Ty};
 
@@ -272,6 +271,112 @@ pub trait Gen {
 			}
 		}
 	}
+
+	fn new_scope(&mut self);
+	fn current_scope(&mut self) -> &mut Scope;
+	fn end_scope(&mut self);
+
+	fn get_bitpack(&mut self) -> (BitpackMask, Var) {
+		let scope = self.current_scope();
+
+		let existing = scope
+			.bitpack_budget
+			.last_mut()
+			.filter(|(shift, _)| *shift < (BitpackMask::BITS as u8 - 1));
+		if let Some(existing) = existing {
+			existing.0 += 1;
+			(1 << existing.0, Var::Name(existing.1.clone()))
+		} else {
+			let (name, _) = self.add_occurrence("bool");
+			self.current_scope().bitpack_budget.push((0, name.clone()));
+			(1, Var::Name(name))
+		}
+	}
+
+	fn variant_storage(&mut self, amount: usize) -> VariantStorageKind {
+		if amount == 1 {
+			VariantStorageKind::None
+			// 0 is variant 1, 1 is variant 2
+		} else if amount == 2 {
+			VariantStorageKind::Bit(self.get_bitpack())
+		} else if self.current_scope().remaining_bitpack_budget() as usize >= amount {
+			VariantStorageKind::Bitpack(iter::repeat_with(|| self.get_bitpack()).take(amount).collect())
+		} else {
+			VariantStorageKind::Full(NumTy::from_f64(0.0, amount as f64 - 1.0), amount)
+		}
+	}
+}
+
+#[derive(Debug)]
+enum OutputEntryKind {
+	Stmt(Stmt),
+	Buffer(OutputBuffer),
+}
+
+#[derive(Debug)]
+pub struct OutputEntry(OutputEntryKind);
+
+impl From<Stmt> for OutputEntry {
+	fn from(value: Stmt) -> Self {
+		OutputEntry(OutputEntryKind::Stmt(value))
+	}
+}
+
+impl From<OutputBuffer> for OutputEntry {
+	fn from(value: OutputBuffer) -> Self {
+		OutputEntry(OutputEntryKind::Buffer(value))
+	}
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct OutputBuffer(Rc<RefCell<Vec<OutputEntry>>>);
+
+impl OutputBuffer {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	pub fn push<T: Into<OutputEntry>>(&self, item: T) {
+		self.0.borrow_mut().push(item.into());
+	}
+
+	pub fn output(self) -> Vec<Stmt> {
+		let mut output = vec![];
+
+		for entry in self.0.take() {
+			match entry.0 {
+				OutputEntryKind::Stmt(stmt) => output.push(stmt),
+				OutputEntryKind::Buffer(buf) => output.extend(buf.output()),
+			}
+		}
+
+		output
+	}
+}
+
+pub type BitpackMask = u16;
+
+#[derive(Debug)]
+pub struct Scope {
+	pub bitpack_budget: Vec<(u8, String)>,
+	pub buf: OutputBuffer,
+}
+
+impl Scope {
+	pub fn remaining_bitpack_budget(&self) -> u8 {
+		self.bitpack_budget
+			.last()
+			.map(|(shift, _)| BitpackMask::BITS as u8 - (shift + 1))
+			.unwrap_or(BitpackMask::BITS as u8)
+	}
+}
+
+#[derive(Debug)]
+pub enum VariantStorageKind {
+	Full(NumTy, usize),
+	Bitpack(Vec<(BitpackMask, Var)>),
+	Bit((BitpackMask, Var)),
+	None,
 }
 
 #[derive(Debug, Clone)]
@@ -343,6 +448,7 @@ pub enum Expr {
 	StrOrBool(String),
 	Var(Box<Var>),
 	Num(f64),
+	BinaryNum(BitpackMask),
 
 	// Function Call
 	Call(Box<Var>, Option<String>, Vec<Expr>),
@@ -469,6 +575,7 @@ impl Display for Expr {
 
 			Self::Var(var) => write!(f, "{var}"),
 			Self::Num(num) => write!(f, "{num}"),
+			Self::BinaryNum(num) => write!(f, "{num:#018b}"),
 
 			Self::Call(var, method, args) => match method {
 				Some(method) => write!(

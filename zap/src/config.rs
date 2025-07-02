@@ -283,7 +283,7 @@ pub enum Ty<'src> {
 
 	Enum(Enum<'src>),
 	Struct(Struct<'src>),
-	Or(Vec<Ty<'src>>, NumTy),
+	Or(Vec<Ty<'src>>, bool),
 	Instance(Option<&'src str>),
 
 	BrickColor,
@@ -409,7 +409,7 @@ impl<'src> Ty<'src> {
 
 			Self::Enum(enum_ty) => enum_ty.size(recursed),
 			Self::Struct(struct_ty) => struct_ty.size(recursed),
-			Self::Or(or_tys, discriminant_numty) => {
+			Self::Or(or_tys, optional) => {
 				let mut min = 0;
 				let mut max = Some(0usize);
 
@@ -430,6 +430,18 @@ impl<'src> Ty<'src> {
 						max = None;
 					}
 				}
+
+				let discriminant_numty = NumTy::from_f64(
+					0.0,
+					(or_tys
+						.iter()
+						.map(|ty| match ty.primitive_ty() {
+							PrimitiveTy::Enum(Enum::Unit(variants)) => variants.len(),
+							PrimitiveTy::Enum(Enum::Tagged { variants, .. }) => variants.len(),
+							_ => 1,
+						})
+						.sum::<usize>() + *optional as usize) as f64,
+				);
 
 				(
 					min + discriminant_numty.size(),
