@@ -163,7 +163,7 @@ impl Des<'_> {
 							this.push_assign(into.clone(), Expr::EmptyTable);
 							this.push_assign(
 								into.clone().eindex(Expr::Str(tag.to_string())),
-								Expr::Str(variant.to_string()),
+								Expr::StrOrBool(variant.to_string()),
 							);
 							this.push_struct(&data, into.clone());
 						}));

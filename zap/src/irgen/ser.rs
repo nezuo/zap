@@ -243,7 +243,7 @@ impl Ser<'_> {
 					for (offset, (variant, data)) in variants.into_iter().enumerate() {
 						let condition = from_ty_expr.clone().eq(Expr::Str("table".to_string())).and(
 							Expr::Var(Box::new(from.clone().eindex(Expr::Str(tag.to_string()))))
-								.eq(Expr::Str(variant.to_string())),
+								.eq(Expr::StrOrBool(variant.to_string())),
 						);
 
 						if initial_if {
