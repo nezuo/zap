@@ -454,7 +454,7 @@ pub enum Expr {
 	Call(Box<Var>, Option<String>, Vec<Expr>),
 
 	// Table
-	EmptyTable,
+	Table(Box<Vec<(Expr, Expr)>>),
 
 	// Datatypes
 	Color3(Box<Expr>, Box<Expr>, Box<Expr>),
@@ -594,7 +594,15 @@ impl Display for Expr {
 				),
 			},
 
-			Self::EmptyTable => write!(f, "{{}}"),
+			Self::Table(items) => write!(
+				f,
+				"{{ {} }}",
+				items
+					.iter()
+					.map(|(key, value)| format!("[{key}] = {value}"))
+					.collect::<Vec<_>>()
+					.join(", ")
+			),
 
 			Self::Color3(r, g, b) => write!(f, "Color3.fromRGB({r}, {g}, {b})"),
 			Self::Vector3(x, y, z) => write!(f, "Vector3.new({x}, {y}, {z})"),

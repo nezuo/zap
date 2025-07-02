@@ -134,8 +134,11 @@ impl Des<'_> {
 				self.read_variant_storage(storage, |this, i| {
 					let (name, struct_ty) = &variants[i];
 					this.push_assign(
-						into.clone().eindex(Expr::Str((*tag).into())),
-						Expr::StrOrBool(name.to_string()),
+						into.clone(),
+						Expr::Table(Box::new(vec![(
+							Expr::Str(tag.to_string()),
+							Expr::StrOrBool(name.to_string()),
+						)])),
 					);
 					this.push_struct(struct_ty, into.clone());
 				});
@@ -160,10 +163,12 @@ impl Des<'_> {
 					for (variant, data) in variants {
 						let into = into.clone();
 						ty_functions.push(Box::new(move |this| {
-							this.push_assign(into.clone(), Expr::EmptyTable);
 							this.push_assign(
-								into.clone().eindex(Expr::Str(tag.to_string())),
-								Expr::StrOrBool(variant.to_string()),
+								into.clone(),
+								Expr::Table(Box::new(vec![(
+									Expr::Str(tag.to_string()),
+									Expr::StrOrBool(variant.to_string()),
+								)])),
 							);
 							this.push_struct(&data, into.clone());
 						}));
@@ -260,9 +265,16 @@ impl Des<'_> {
 			}
 
 			Ty::Arr(ty, range) => {
-				self.push_assign(into.clone(), Expr::EmptyTable);
-
 				if let Some(len) = range.exact() {
+					self.push_assign(
+						into.clone(),
+						Expr::Call(
+							Var::NameIndex(Var::Name("table".into()).into(), "create".into()).into(),
+							None,
+							vec![Expr::Num(len)],
+						),
+					);
+
 					for i in 1..=(len as usize) {
 						self.push_ty(ty, into.clone().eindex((i as f64).into()));
 					}
@@ -281,6 +293,15 @@ impl Des<'_> {
 					if self.checks {
 						self.push_range_check(len_expr.clone(), *range);
 					}
+
+					self.push_assign(
+						into.clone(),
+						Expr::Call(
+							Var::NameIndex(Var::Name("table".into()).into(), "create".into()).into(),
+							None,
+							vec![len_expr.clone()],
+						),
+					);
 
 					self.push_stmt(Stmt::NumFor {
 						var: var_name.clone(),
@@ -310,7 +331,7 @@ impl Des<'_> {
 			Ty::Map(key, val) => {
 				let length_numty = key.variants().map(|(numty, ..)| numty).unwrap_or(NumTy::U16);
 
-				self.push_assign(into.clone(), Expr::EmptyTable);
+				self.push_assign(into.clone(), Expr::Table(Default::default()));
 
 				self.push_stmt(Stmt::NumFor {
 					var: "_".into(),
@@ -338,7 +359,7 @@ impl Des<'_> {
 			Ty::Set(key) => {
 				let length_numty = key.variants().map(|(numty, ..)| numty).unwrap_or(NumTy::U16);
 
-				self.push_assign(into.clone(), Expr::EmptyTable);
+				self.push_assign(into.clone(), Expr::Table(Default::default()));
 
 				self.push_stmt(Stmt::NumFor {
 					var: "_".into(),
@@ -409,13 +430,10 @@ impl Des<'_> {
 				);
 			}
 
-			Ty::Enum(enum_ty) => {
-				self.push_assign(into.clone(), Expr::EmptyTable);
-				self.push_enum(enum_ty, into)
-			}
+			Ty::Enum(enum_ty) => self.push_enum(enum_ty, into),
 
 			Ty::Struct(struct_ty) => {
-				self.push_assign(into.clone(), Expr::EmptyTable);
+				self.push_assign(into.clone(), Expr::Table(Default::default()));
 				self.push_struct(struct_ty, into)
 			}
 
