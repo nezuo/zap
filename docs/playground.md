@@ -108,12 +108,12 @@ onMounted(() => {
 	const codeParam = new URLSearchParams(window.location.search).get("code")
 
 	if (codeParam) {
-		localStorage.setItem("code", decodeURIComponent(codeParam))
+		sessionStorage.setItem("code", decodeURIComponent(codeParam))
 		go("/playground")
 		return;
 	}
 
-	const codeStr = localStorage.getItem("code") ?? ""
+	const codeStr = sessionStorage.getItem("code") ?? ""
 
 	try {
 		const result = atob(codeStr)
@@ -149,7 +149,7 @@ watch([code, noWarnings], ([newCode, noWarnings]) => {
 		padding: "20px 0px",
 	};
 
-	localStorage.setItem("code", btoa(newCode))
+	sessionStorage.setItem("code", btoa(newCode))
 })
 
 const copyURL = () => {
@@ -190,6 +190,7 @@ const toggleNoWarnings = () => {
 	display: block;
 	padding: 0px 16px;
 	font-size: 12px;
+	text-wrap: auto;
 }
 .ansi-bold {
 	font-weight: bold
