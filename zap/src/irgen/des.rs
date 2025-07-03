@@ -18,7 +18,7 @@ impl Gen for Des<'_> {
 		self.buf.push(stmt);
 	}
 
-	fn gen<'a, 'src: 'a, I>(mut self, names: &[String], types: I) -> Vec<Stmt>
+	fn generate<'a, 'src: 'a, I>(mut self, names: &[String], types: I) -> Vec<Stmt>
 	where
 		I: Iterator<Item = &'a Ty<'src>>,
 	{
@@ -651,7 +651,7 @@ impl Des<'_> {
 	}
 }
 
-pub fn gen<'a, 'src: 'a, I>(
+pub fn generate<'a, 'src: 'a, I>(
 	types: I,
 	names: &[String],
 	checks: bool,
@@ -666,5 +666,5 @@ where
 		var_occurrences,
 		scopes: vec![],
 	}
-	.gen(names, types.into_iter())
+	.generate(names, types.into_iter())
 }

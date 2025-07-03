@@ -153,7 +153,7 @@ impl<'src> ServerOutput<'src> {
 
 		self.push_line(&format!("function types.write_{tydecl}(value: {tydecl})"));
 		self.indent();
-		let statements = &ser::gen(
+		let statements = &ser::generate(
 			&[ty.clone()],
 			&["value".to_string()],
 			self.config.write_checks,
@@ -166,7 +166,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_line(&format!("function types.read_{tydecl}()"));
 		self.indent();
 		self.push_line("local value;");
-		let statements = &des::gen(&[ty.clone()], &["value".to_string()], true, &mut HashMap::new());
+		let statements = &des::generate(&[ty.clone()], &["value".to_string()], true, &mut HashMap::new());
 		self.push_stmts(statements);
 		self.push_line("return value");
 		self.dedent();
@@ -363,7 +363,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_line(&format!("local {values}"));
 
 		if !ev.data.is_empty() {
-			let statements = &des::gen(
+			let statements = &des::generate(
 				ev.data.iter().map(|parameter| &parameter.ty),
 				&get_unnamed_values("value", ev.data.len()),
 				true,
@@ -423,7 +423,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_line(&format!("local {values}"));
 
 		if !fndecl.args.is_empty() {
-			let statements = &des::gen(
+			let statements = &des::generate(
 				fndecl.args.iter().map(|parameter| &parameter.ty),
 				&get_unnamed_values("value", fndecl.args.len()),
 				true,
@@ -473,7 +473,7 @@ impl<'src> ServerOutput<'src> {
 
 			if let Some(types) = &fndecl.rets {
 				let names: Vec<String> = (0..types.len()).map(|i| format!("ret_{}", i + 1)).collect();
-				let statements = &ser::gen(types, &names, self.config.write_checks, &mut self.var_occurrences);
+				let statements = &ser::generate(types, &names, self.config.write_checks, &mut self.var_occurrences);
 				self.push_stmts(statements);
 			}
 
@@ -494,7 +494,7 @@ impl<'src> ServerOutput<'src> {
 
 			if let Some(types) = &fndecl.rets {
 				let names: Vec<String> = (0..types.len()).map(|i| format!("ret_{}", i + 1)).collect();
-				let statements = &ser::gen(types, &names, self.config.write_checks, &mut self.var_occurrences);
+				let statements = &ser::generate(types, &names, self.config.write_checks, &mut self.var_occurrences);
 				self.push_stmts(statements);
 			}
 
@@ -587,7 +587,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_line(&format!("local {values}"));
 
 		if !ev.data.is_empty() {
-			let statements = &des::gen(
+			let statements = &des::generate(
 				ev.data.iter().map(|parameter| &parameter.ty),
 				&get_unnamed_values("value", ev.data.len()),
 				true,
@@ -742,7 +742,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_write_evdecl_event_id(ev);
 
 		if !parameters.is_empty() {
-			let statements = &ser::gen(
+			let statements = &ser::generate(
 				parameters.iter().map(|parameter| &parameter.ty),
 				&get_named_values(value, parameters),
 				self.config.write_checks,
@@ -792,7 +792,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_write_evdecl_event_id(ev);
 
 		if !parameters.is_empty() {
-			let statements = &ser::gen(
+			let statements = &ser::generate(
 				parameters.iter().map(|parameter| &parameter.ty),
 				&get_named_values(value, parameters),
 				self.config.write_checks,
@@ -865,7 +865,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_write_evdecl_event_id(ev);
 
 		if !parameters.is_empty() {
-			let statements = &ser::gen(
+			let statements = &ser::generate(
 				parameters.iter().map(|paramater| &paramater.ty),
 				&get_named_values(value, parameters),
 				self.config.write_checks,
@@ -943,7 +943,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_write_evdecl_event_id(ev);
 
 		if !parameters.is_empty() {
-			let statements = &ser::gen(
+			let statements = &ser::generate(
 				parameters.iter().map(|parameter| &parameter.ty),
 				&get_named_values(value, parameters),
 				self.config.write_checks,
@@ -1013,7 +1013,7 @@ impl<'src> ServerOutput<'src> {
 		self.push_write_evdecl_event_id(ev);
 
 		if !parameters.is_empty() {
-			let statements = &ser::gen(
+			let statements = &ser::generate(
 				parameters.iter().map(|parameter| &parameter.ty),
 				&get_named_values(value, parameters),
 				self.config.write_checks,

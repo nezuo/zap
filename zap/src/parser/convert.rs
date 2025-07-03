@@ -8,7 +8,7 @@ use std::{
 
 use crate::config::{
 	Casing, Config, Enum, EvCall, EvDecl, EvSource, EvType, FnDecl, NamespaceEntry, NonPrimitiveTy, NumTy, Parameter,
-	PrimitiveTy, Range, Struct, Ty, TyDecl, YieldType, UNRELIABLE_ORDER_NUMTY,
+	PrimitiveTy, Range, Struct, Ty, TyDecl, UNRELIABLE_ORDER_NUMTY, YieldType,
 };
 
 use super::{
@@ -1037,11 +1037,7 @@ impl<'src> Converter<'src> {
 		let optional = prev_unknown_span.is_some() || optional;
 		let ty = Ty::Or(tys, optional);
 
-		if optional {
-			Ty::Opt(Box::new(ty))
-		} else {
-			ty
-		}
+		if optional { Ty::Opt(Box::new(ty)) } else { ty }
 	}
 
 	fn ty_recursion_kind(
