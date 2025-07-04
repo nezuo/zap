@@ -70,6 +70,7 @@ impl<'src> TestOutput<'src> {
 			&["value".to_string()],
 			self.config.write_checks,
 			&mut HashMap::new(),
+			self.config.typescript_enum,
 		);
 		self.push_stmts(statements);
 		self.dedent();
@@ -78,7 +79,13 @@ impl<'src> TestOutput<'src> {
 		self.push_line(&format!("function types.read_{tydecl}()"));
 		self.indent();
 		self.push_line("local value;");
-		let statements = &des::generate(&[ty.clone()], &["value".to_string()], true, &mut HashMap::new());
+		let statements = &des::generate(
+			&[ty.clone()],
+			&["value".to_string()],
+			true,
+			&mut HashMap::new(),
+			self.config.typescript_enum,
+		);
 		self.push_stmts(statements);
 		self.push_line("return value");
 		self.dedent();
@@ -120,6 +127,7 @@ impl<'src> TestOutput<'src> {
 			&ser_names,
 			self.config.write_checks,
 			&mut self.var_occurrences,
+			self.config.typescript_enum,
 		);
 
 		self.push_stmts(&ser_statements);
@@ -134,6 +142,7 @@ impl<'src> TestOutput<'src> {
 			&des_names,
 			self.config.write_checks,
 			&mut self.var_occurrences,
+			self.config.typescript_enum,
 		);
 
 		self.push_stmts(&des_statements);
@@ -507,4 +516,18 @@ async fn test_string_kinds() {
 			unreachable!()
 		}
 	}
+}
+
+#[tokio::test]
+async fn test_typescript_enum() {
+	let (config, reports) = parse(include_str!("../files/typescript_enum.zap"));
+
+	assert!(config.is_some());
+	assert!(reports.is_empty());
+
+	let default_values: HashMap<&str, Vec<&str>> = HashMap::from([("Event", vec!["0", "2"])]);
+	let output = TestOutput::new(&config.unwrap(), default_values).output();
+	let mut runtime = Runtime::new();
+
+	runtime.run("Zap", output).await.unwrap();
 }
