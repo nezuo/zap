@@ -5,7 +5,7 @@ use lune::Runtime;
 use zap::{
 	config::{Config, Parameter, TyDecl},
 	irgen::{des, ser},
-	output::luau::Output,
+	output::{ConfigProvider, luau::Output},
 	parser::parse,
 };
 
@@ -17,7 +17,7 @@ struct TestOutput<'src> {
 	default_values: HashMap<&'src str, Vec<&'src str>>,
 }
 
-impl Output for TestOutput<'_> {
+impl<'src> Output<'src> for TestOutput<'src> {
 	fn push(&mut self, s: &str) {
 		self.buf.push_str(s);
 	}
@@ -34,6 +34,12 @@ impl Output for TestOutput<'_> {
 		for _ in 0..self.tabs {
 			self.push("\t");
 		}
+	}
+}
+
+impl<'src> ConfigProvider<'src> for TestOutput<'src> {
+	fn get_config(&self) -> &'src Config<'src> {
+		self.config
 	}
 }
 

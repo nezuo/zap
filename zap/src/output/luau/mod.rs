@@ -1,5 +1,6 @@
+use super::ConfigProvider;
 use crate::{
-	config::{Enum, EvDecl, EvType, Ty},
+	config::{Enum, EvDecl, EvType, Ty, TypeScriptEnumType},
 	irgen::Stmt,
 };
 
@@ -9,7 +10,7 @@ pub mod types;
 
 const INITIAL_POLLING_EVENT_CAPACITY: usize = 100;
 
-pub trait Output {
+pub trait Output<'src>: ConfigProvider<'src> {
 	fn push(&mut self, s: &str);
 	fn indent(&mut self);
 	fn dedent(&mut self);
@@ -123,14 +124,16 @@ pub trait Output {
 			Ty::Ref(tydecl) => self.push(&tydecl.to_string()),
 
 			Ty::Enum(enum_ty) => match enum_ty {
-				Enum::Unit(enumerators) => self.push(
-					&enumerators
-						.iter()
-						.map(|v| format!("\"{v}\""))
-						.collect::<Vec<_>>()
-						.join(" | ")
-						.to_string(),
-				),
+				Enum::Unit(enumerators) => match self.get_config().typescript_enum {
+					TypeScriptEnumType::StringLiteral | TypeScriptEnumType::ConstString => self.push(
+						&enumerators
+							.iter()
+							.map(|v| format!("\"{v}\""))
+							.collect::<Vec<_>>()
+							.join(" | "),
+					),
+					TypeScriptEnumType::ConstNumber => self.push("number"),
+				},
 
 				Enum::Tagged { tag, variants } => {
 					for (i, (name, struct_ty)) in variants.iter().enumerate() {

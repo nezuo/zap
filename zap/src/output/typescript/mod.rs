@@ -1,12 +1,9 @@
-use crate::config::{Config, Enum, Parameter, Ty, TypeScriptEnumType};
+use super::ConfigProvider;
+use crate::config::{Enum, Parameter, Ty, TypeScriptEnumType};
 
 pub mod client;
 pub mod server;
 pub mod types;
-
-pub trait ConfigProvider<'src> {
-	fn get_config(&self) -> &'src Config<'src>;
-}
 
 pub trait Output<'src>: ConfigProvider<'src> {
 	fn push(&mut self, s: &str);

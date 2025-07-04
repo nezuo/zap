@@ -7,7 +7,7 @@ use crate::{
 	},
 	irgen::{des, ser},
 	output::{
-		get_named_values, get_unnamed_values,
+		ConfigProvider, get_named_values, get_unnamed_values,
 		luau::{events_table_name, polling_queues_name},
 	},
 };
@@ -21,7 +21,7 @@ struct ServerOutput<'src> {
 	var_occurrences: HashMap<String, usize>,
 }
 
-impl Output for ServerOutput<'_> {
+impl<'src> Output<'src> for ServerOutput<'src> {
 	fn push(&mut self, s: &str) {
 		self.buf.push_str(s);
 	}
@@ -38,6 +38,12 @@ impl Output for ServerOutput<'_> {
 		for _ in 0..self.tabs {
 			self.push("\t");
 		}
+	}
+}
+
+impl<'src> ConfigProvider<'src> for ServerOutput<'src> {
+	fn get_config(&self) -> &'src Config<'src> {
+		self.config
 	}
 }
 

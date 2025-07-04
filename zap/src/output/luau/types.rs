@@ -1,6 +1,5 @@
+use super::{ConfigProvider, Output};
 use crate::config::{Config, TyDecl};
-
-use super::Output;
 
 struct TypesOutput<'src> {
 	config: &'src Config<'src>,
@@ -8,7 +7,7 @@ struct TypesOutput<'src> {
 	buf: String,
 }
 
-impl Output for TypesOutput<'_> {
+impl<'src> Output<'src> for TypesOutput<'src> {
 	fn push(&mut self, s: &str) {
 		self.buf.push_str(s);
 	}
@@ -25,6 +24,12 @@ impl Output for TypesOutput<'_> {
 		for _ in 0..self.tabs {
 			self.push("\t");
 		}
+	}
+}
+
+impl<'src> ConfigProvider<'src> for TypesOutput<'src> {
+	fn get_config(&self) -> &'src Config<'src> {
+		self.config
 	}
 }
 

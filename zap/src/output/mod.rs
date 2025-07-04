@@ -1,8 +1,12 @@
-use crate::config::Parameter;
+use crate::config::{Config, Parameter};
 
 pub mod luau;
 pub mod tooling;
 pub mod typescript;
+
+pub trait ConfigProvider<'src> {
+	fn get_config(&self) -> &'src Config<'src>;
+}
 
 pub fn get_unnamed_values(prefix: &str, count: usize) -> Vec<String> {
 	(0..count)
