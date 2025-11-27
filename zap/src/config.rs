@@ -38,6 +38,7 @@ pub struct Config<'src> {
 
 	pub write_checks: bool,
 	pub manual_event_loop: bool,
+	pub include_profile_labels: bool,
 
 	pub remote_scope: &'src str,
 	pub remote_folder: &'src str,

@@ -207,6 +207,10 @@ impl<'src> ClientOutput<'src> {
 	}
 
 	fn push_event_loop_body(&mut self) {
+		if self.config.include_profile_labels {
+			self.push_line("debug.profilebegin(\"Zap Send Events\")");
+		}
+
 		self.push_line("if outgoing_used ~= 0 then");
 		self.indent();
 		self.push_line("local buff = buffer.create(outgoing_used)");
@@ -220,6 +224,11 @@ impl<'src> ClientOutput<'src> {
 		self.push_line("table.clear(outgoing_inst)");
 		self.dedent();
 		self.push_line("end");
+
+		if self.config.include_profile_labels {
+			self.push_line("debug.profileend()");
+		}
+
 		self.dedent();
 	}
 
@@ -241,6 +250,11 @@ impl<'src> ClientOutput<'src> {
 	fn push_reliable_header(&mut self) {
 		self.push_line("reliable.OnClientEvent:Connect(function(buff, inst)");
 		self.indent();
+
+		if self.config.include_profile_labels {
+			self.push_line("debug.profilebegin(\"Zap Reliable OnClientEvent\")");
+		}
+
 		self.push_line("incoming_buff = buff");
 		self.push_line("incoming_inst = inst");
 		self.push_line("incoming_read = 0");
@@ -380,6 +394,10 @@ impl<'src> ClientOutput<'src> {
 
 		self.indent();
 
+		if self.config.include_profile_labels {
+			self.push_line(&format!("debug.profilebegin(\"{} Deserialize\")", ev.name));
+		}
+
 		let values = self.get_values(ev.data.len());
 
 		self.push_line(&format!("local {values}"));
@@ -393,6 +411,10 @@ impl<'src> ClientOutput<'src> {
 				self.config.typescript_enum,
 			);
 			self.push_stmts(statements);
+		}
+
+		if self.config.include_profile_labels {
+			self.push_line("debug.profileend()");
 		}
 
 		match ev.call {
@@ -483,6 +505,10 @@ impl<'src> ClientOutput<'src> {
 
 		self.indent();
 
+		if self.config.include_profile_labels {
+			self.push_line(&format!("debug.profilebegin(\"{} Deserialize\")", fndecl.name));
+		}
+
 		self.push_line("local call_id = buffer.readu8(incoming_buff, read(1))");
 
 		let values = self.get_values(fndecl.rets.as_ref().map_or(0, |x| x.len()));
@@ -498,6 +524,10 @@ impl<'src> ClientOutput<'src> {
 				self.config.typescript_enum,
 			);
 			self.push_stmts(statements);
+		}
+
+		if self.config.include_profile_labels {
+			self.push_line("debug.profileend()");
 		}
 
 		self.push_line(&format!("local thread = reliable_event_queue[{client_id}][call_id]"));
@@ -547,6 +577,11 @@ impl<'src> ClientOutput<'src> {
 		self.push_line("end");
 		self.dedent();
 		self.push_line("end");
+
+		if self.config.include_profile_labels {
+			self.push_line("debug.profileend()");
+		}
+
 		self.dedent();
 		self.push_line("end)");
 	}
@@ -588,6 +623,11 @@ impl<'src> ClientOutput<'src> {
 			id + 1
 		));
 		self.indent();
+
+		if self.config.include_profile_labels {
+			self.push_line(&format!("debug.profilebegin(\"Zap {} OnClientEvent\")", ev.name));
+		}
+
 		self.push_line("incoming_buff = buff");
 		self.push_line("incoming_inst = inst");
 		self.push_line("incoming_read = 0");
@@ -690,6 +730,10 @@ impl<'src> ClientOutput<'src> {
 
 			self.dedent();
 			self.push_line("end");
+		}
+
+		if self.config.include_profile_labels {
+			self.push_line("debug.profileend()");
 		}
 
 		self.dedent();
@@ -815,6 +859,10 @@ impl<'src> ClientOutput<'src> {
 		self.push(")\n");
 		self.indent();
 
+		if self.config.include_profile_labels {
+			self.push_line(&format!("debug.profilebegin(\"{} Fire\")", ev.name));
+		}
+
 		if let EvType::Unreliable(ordered) = ev.evty {
 			let id = ev.id;
 			if ordered {
@@ -854,6 +902,10 @@ impl<'src> ClientOutput<'src> {
 			self.push_line("load(saved)");
 		}
 
+		if self.config.include_profile_labels {
+			self.push_line("debug.profileend()");
+		}
+
 		self.dedent();
 		self.push_line("end,");
 	}
@@ -881,6 +933,13 @@ impl<'src> ClientOutput<'src> {
 
 		self.push(") -> ()): () -> ()\n");
 		self.indent();
+
+		if self.config.include_profile_labels {
+			self.push_line(&format!(
+				"callback = profiledCallback(\"{} Callback\", callback)",
+				ev.name
+			));
+		}
 
 		self.push_line(&format!("{}[{id}] = {callback}", events_table_name(ev)));
 
@@ -949,6 +1008,13 @@ impl<'src> ClientOutput<'src> {
 
 		self.push(") -> ())\n");
 		self.indent();
+
+		if self.config.include_profile_labels {
+			self.push_line(&format!(
+				"callback = profiledCallback(\"{} Callback\", callback)",
+				ev.name
+			));
+		}
 
 		let events_table_name = events_table_name(ev);
 		let event_queue_name = event_queue_table_name(ev);
@@ -1203,6 +1269,10 @@ impl<'src> ClientOutput<'src> {
 						this.push("\n");
 						this.indent();
 
+						if self.config.include_profile_labels {
+							this.push_line(&format!("debug.profilebegin(\"{} Call\")", fndecl.name));
+						}
+
 						this.push_line("function_call_id += 1");
 
 						this.push_line("function_call_id %= 256");
@@ -1239,9 +1309,18 @@ impl<'src> ClientOutput<'src> {
 								this.push_line(&format!(
 									"reliable_event_queue[{client_id}][function_call_id] = coroutine.running()"
 								));
+
+								if self.config.include_profile_labels {
+									this.push_line("debug.profileend()");
+								}
+
 								this.push_line("return coroutine.yield()");
 							}
 							YieldType::Future => {
+								if self.config.include_profile_labels {
+									this.push_line("debug.profileend()");
+								}
+
 								this.push_line("return Future.new(function()");
 								this.indent();
 
@@ -1254,6 +1333,10 @@ impl<'src> ClientOutput<'src> {
 								this.push_line("end)");
 							}
 							YieldType::Promise => {
+								if self.config.include_profile_labels {
+									this.push_line("debug.profileend()");
+								}
+
 								this.push_line("return Promise.new(function(resolve)");
 								this.indent();
 
@@ -1366,6 +1449,10 @@ impl<'src> ClientOutput<'src> {
 		self.push_unreliable();
 
 		self.push_polling();
+
+		if self.config.include_profile_labels {
+			self.push_profiled_callback();
+		}
 
 		self.push_return();
 

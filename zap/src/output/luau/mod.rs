@@ -254,6 +254,21 @@ pub trait Output<'src>: ConfigProvider<'src> {
 		));
 		self.push("\n");
 	}
+
+	fn push_profiled_callback(&mut self) {
+		self.push_line("local function profiledCallback(label, callback)");
+		self.indent();
+		self.push_line("return function(...)");
+		self.indent();
+		self.push_line("debug.profilebegin(label)");
+		self.push_line("callback(...)");
+		self.push_line("debug.profileend()");
+		self.dedent();
+		self.push_line("end");
+		self.dedent();
+		self.push_line("end");
+		self.push("\n");
+	}
 }
 
 fn events_table_name<'a>(evdecl: &EvDecl) -> &'a str {
