@@ -1198,7 +1198,7 @@ impl<'src> ServerOutput<'src> {
 
 		if self.config.include_profile_labels {
 			self.push_line(&format!(
-				"callback = profiledCallback(\"{} Callback\", callback)",
+				"{callback} = profiledCallback(\"{} Callback\", {callback})",
 				ev.name
 			));
 		}
@@ -1237,7 +1237,7 @@ impl<'src> ServerOutput<'src> {
 
 		if self.config.include_profile_labels {
 			self.push_line(&format!(
-				"callback = profiledCallback(\"{} Callback\", callback)",
+				"{callback} = profiledCallback(\"{} Callback\", {callback})",
 				ev.name
 			));
 		}
@@ -1291,7 +1291,7 @@ impl<'src> ServerOutput<'src> {
 
 		if self.config.include_profile_labels {
 			self.push_line(&format!(
-				"callback = profiledCallback(\"{} Callback\", callback)",
+				"{callback} = profiledCallback(\"{} Callback\", {callback})",
 				fndecl.name
 			));
 		}
