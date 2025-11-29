@@ -387,7 +387,7 @@ impl<'src> ServerOutput<'src> {
 		self.indent();
 
 		if self.config.include_profile_labels {
-			self.push_line(&format!("debug.profilebegin(\"{} Deserialize\")", ev.name));
+			self.push_line(&format!("debug.profilebegin(\"{} Deserialize\")", ev.display_path()));
 		}
 
 		let values = self.get_values(&ev.data);
@@ -417,12 +417,20 @@ impl<'src> ServerOutput<'src> {
 
 		self.indent();
 
+		if self.config.include_profile_labels && ev.call != EvCall::Polling {
+			self.push_line(&format!("debug.profilebegin(\"{} Callback\")", ev.display_path()));
+		}
+
 		match ev.call {
 			EvCall::SingleSync => self.push_line(&format!("reliable_events[{id}](player, {values})")),
 			EvCall::SingleAsync => self.push_line(&format!("task.spawn(reliable_events[{id}], player, {values})")),
 			EvCall::ManySync => self.push_line(&format!("cb(player, {values})")),
 			EvCall::ManyAsync => self.push_line(&format!("task.spawn(cb, player, {values})")),
 			EvCall::Polling => (),
+		}
+
+		if self.config.include_profile_labels && ev.call != EvCall::Polling {
+			self.push_line("debug.profileend()");
 		}
 
 		self.dedent();
@@ -454,7 +462,10 @@ impl<'src> ServerOutput<'src> {
 		self.indent();
 
 		if self.config.include_profile_labels {
-			self.push_line(&format!("debug.profilebegin(\"{} Deserialize\")", fndecl.name));
+			self.push_line(&format!(
+				"debug.profilebegin(\"{} Deserialize\")",
+				fndecl.display_path()
+			));
 		}
 
 		self.push_line("local call_id = buffer.readu8(buff, read(1))");
@@ -621,7 +632,10 @@ impl<'src> ServerOutput<'src> {
 		self.indent();
 
 		if self.config.include_profile_labels {
-			self.push_line(&format!("debug.profilebegin(\"Zap {} OnServerEvent\")", ev.name));
+			self.push_line(&format!(
+				"debug.profilebegin(\"Zap {} OnServerEvent\")",
+				ev.display_path()
+			));
 		}
 
 		self.push_line("incoming_buff = buff");
@@ -676,6 +690,10 @@ impl<'src> ServerOutput<'src> {
 
 			self.indent();
 
+			if self.config.include_profile_labels {
+				self.push_line(&format!("debug.profilebegin(\"{} Callback\")", ev.display_path()));
+			}
+
 			match ev.call {
 				EvCall::SingleSync => self.push_line(&format!("unreliable_events[{id}](player, {values})")),
 				EvCall::SingleAsync => {
@@ -684,6 +702,10 @@ impl<'src> ServerOutput<'src> {
 				EvCall::ManySync => self.push_line(&format!("cb(player, {values})")),
 				EvCall::ManyAsync => self.push_line(&format!("task.spawn(cb, player, {values})")),
 				EvCall::Polling => (),
+			}
+
+			if self.config.include_profile_labels {
+				self.push_line("debug.profileend()");
 			}
 
 			self.dedent();
@@ -808,7 +830,7 @@ impl<'src> ServerOutput<'src> {
 		self.indent();
 
 		if self.config.include_profile_labels {
-			self.push_line(&format!("debug.profilebegin(\"{} Fire\")", ev.name));
+			self.push_line(&format!("debug.profilebegin(\"{} Fire\")", ev.display_path()));
 		}
 
 		match ev.evty {
@@ -870,7 +892,7 @@ impl<'src> ServerOutput<'src> {
 		self.indent();
 
 		if self.config.include_profile_labels {
-			self.push_line(&format!("debug.profilebegin(\"{} FireAll\")", ev.name));
+			self.push_line(&format!("debug.profilebegin(\"{} FireAll\")", ev.display_path()));
 		}
 
 		self.push_line("load_empty()");
@@ -952,7 +974,7 @@ impl<'src> ServerOutput<'src> {
 		self.indent();
 
 		if self.config.include_profile_labels {
-			self.push_line(&format!("debug.profilebegin(\"{} FireExcept\")", ev.name));
+			self.push_line(&format!("debug.profilebegin(\"{} FireExcept\")", ev.display_path()));
 		}
 
 		self.push_line("load_empty()");
@@ -1039,7 +1061,7 @@ impl<'src> ServerOutput<'src> {
 		self.indent();
 
 		if self.config.include_profile_labels {
-			self.push_line(&format!("debug.profilebegin(\"{} FireList\")", ev.name));
+			self.push_line(&format!("debug.profilebegin(\"{} FireList\")", ev.display_path()));
 		}
 
 		self.push_line("load_empty()");
@@ -1118,7 +1140,7 @@ impl<'src> ServerOutput<'src> {
 		self.indent();
 
 		if self.config.include_profile_labels {
-			self.push_line(&format!("debug.profilebegin(\"{} FireSet\")", ev.name));
+			self.push_line(&format!("debug.profilebegin(\"{} FireSet\")", ev.display_path()));
 		}
 
 		self.push_line("load_empty()");
@@ -1196,13 +1218,6 @@ impl<'src> ServerOutput<'src> {
 		self.push(") -> ()): () -> ()\n");
 		self.indent();
 
-		if self.config.include_profile_labels {
-			self.push_line(&format!(
-				"{callback} = profiledCallback(\"{} Callback\", {callback})",
-				ev.name
-			));
-		}
-
 		self.push_line(&format!("{}[{id}] = {callback}", events_table_name(ev)));
 
 		self.push_line("return function()");
@@ -1234,13 +1249,6 @@ impl<'src> ServerOutput<'src> {
 
 		self.push(") -> ()): () -> ()\n");
 		self.indent();
-
-		if self.config.include_profile_labels {
-			self.push_line(&format!(
-				"{callback} = profiledCallback(\"{} Callback\", {callback})",
-				ev.name
-			));
-		}
 
 		let events_table = events_table_name(ev);
 
@@ -1288,13 +1296,6 @@ impl<'src> ServerOutput<'src> {
 
 		self.push(")): () -> ()\n");
 		self.indent();
-
-		if self.config.include_profile_labels {
-			self.push_line(&format!(
-				"{callback} = profiledCallback(\"{} Callback\", {callback})",
-				fndecl.name
-			));
-		}
 
 		self.push_line(&format!("reliable_events[{server_id}] = {callback}"));
 
@@ -1640,10 +1641,6 @@ impl<'src> ServerOutput<'src> {
 		self.push_unreliable();
 
 		self.push_polling();
-
-		if self.config.include_profile_labels {
-			self.push_profiled_callback();
-		}
 
 		self.push_return();
 

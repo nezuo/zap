@@ -216,6 +216,16 @@ pub struct FnDecl<'src> {
 	pub path: Vec<&'src str>,
 }
 
+impl<'src> FnDecl<'src> {
+	pub fn display_path(&self) -> String {
+		if self.path.is_empty() {
+			self.name.to_string()
+		} else {
+			format!("{}.{}", self.path.join("."), self.name)
+		}
+	}
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FnCall {
 	Async,
@@ -231,6 +241,16 @@ pub struct EvDecl<'src> {
 	pub data: Vec<Parameter<'src>>,
 	pub id: usize,
 	pub path: Vec<&'src str>,
+}
+
+impl<'src> EvDecl<'src> {
+	pub fn display_path(&self) -> String {
+		if self.path.is_empty() {
+			self.name.to_string()
+		} else {
+			format!("{}.{}", self.path.join("."), self.name)
+		}
+	}
 }
 
 #[derive(Debug, Clone)]
